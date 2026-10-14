@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Resolve main once and start image builds; no serving workload is changed.
+set -euo pipefail
+umask 077
+: "${OCE_CHECKOUT:?Set the OCE source checkout}"
+: "${OCC_INPUT_DIRECTORY:?Set an existing private input directory}"
+repository=$(cd "$(dirname "$0")/.." && pwd -P)
+source_checkout=$(cd "$OCE_CHECKOUT" && pwd -P)
+inputs=$(cd "$OCC_INPUT_DIRECTORY" && pwd -P)
+case "$inputs/" in
+  "$repository/"*|"$source_checkout/"*) echo 'Keep cluster inputs outside both repositories.' >&2; exit 1 ;;
+esac
+component=${1:-both}
+case "$component" in controller|runtime|both) ;; *) echo 'Usage: build-images [controller|runtime|both]' >&2; exit 1 ;; esac
+git -C "$source_checkout" fetch origin main
+revision=${OCC_REV:-$(git -C "$source_checkout" rev-parse origin/main)}
+[[ "$revision" =~ ^[a-f0-9]{40}$ ]]
+openclaw=$(git -C "$source_checkout" show "$revision:deploy/runtime/Dockerfile" | sed -n 's/^ARG OPENCLAW_COMMIT=//p')
+checksum=$(git -C "$source_checkout" show "$revision:deploy/runtime/Dockerfile" | awk '/openclaw-source.tar.gz.*sha256sum/ {gsub(/\047/, "", $2); print $2}')
+[[ "$openclaw" =~ ^[a-f0-9]{40}$ ]]
+[[ "$checksum" =~ ^[a-f0-9]{64}$ ]]
+jq -n --arg oce "$revision" --arg openclaw "$openclaw" --arg archive "$checksum"   '{oceCommit:$oce,openclawCommit:$openclaw,sourceArchiveSha256:$archive}' > "$inputs/runtime-source.json"
+oc process -f "$repository/manifests/openshift/image-builds-template.yaml"   -p "REV=$revision" -p "RUNTIME_TAG=$revision-$openclaw" | oc -n openclaw-system apply -f -
+git -C "$source_checkout" archive --format=tar -o "$inputs/source.tar" "$revision"
+if [[ "$component" == controller || "$component" == both ]]; then
+  oc -n openclaw-system start-build oce-controller --from-archive="$inputs/source.tar"
+fi
+if [[ "$component" == runtime || "$component" == both ]]; then
+  oc -n openclaw-system start-build oce-runtime --from-archive="$inputs/source.tar"
+fi
+printf 'Builds started from OCE %s. Serving images remain unchanged.\n' "$revision"

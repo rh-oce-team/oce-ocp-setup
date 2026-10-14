@@ -1,0 +1,34 @@
+dashboard:
+  image:
+    digest: sha256:a362788f96ee709c96fc7917feed3f55b44f63e260247ae0787d4478c6d7c37e
+authProxy:
+  image:
+    digest: sha256:aa0bd8dd5ab0c78e4c91c92755ad573a5f92241f88138b4141b8ec803463b4fd
+gateway:
+  serviceName: openshell-gateway
+  tls:
+    enabled: false
+  caSecretName: ""
+oidc:
+  provider: keycloak-oidc
+  issuer: https://${KEYCLOAK_HOST}/realms/openshell
+  adminRole: openshell-admin
+  codeChallengeMethod: S256
+  allowedRoles: [openshell-api:openshell-admin, openshell-api:openshell-user]
+  existingSecret: openshell-dashboard-oidc
+podSecurityContext: null
+securityContext:
+  runAsUser: null
+nodeSelector:
+  oce-role: control
+openshiftRoute:
+  enabled: true
+  host: ${DASHBOARD_HOST}
+networkPolicy:
+  ingressFrom:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: openshift-ingress
+      podSelector:
+        matchLabels:
+          ingresscontroller.operator.openshift.io/deployment-ingresscontroller: default

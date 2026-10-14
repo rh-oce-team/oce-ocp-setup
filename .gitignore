@@ -1,0 +1,16 @@
+/bin/
+/inputs/
+/state/
+.env
+*.env
+*.tar
+*.tar.gz
+kubeconfig*
+*.pem
+*.key
+*-password
+*-secret
+.DS_Store
+
+__pycache__/
+*.pyc
