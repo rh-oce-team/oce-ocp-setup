@@ -23,6 +23,7 @@ scripts/build-occ
 - **Another Agent:** [additional-Agent recipe](docs/agents.md), using the existing images.
 - **Scoped owners:** [owner access](docs/owner-access.md); cluster-admin access remains an explicit alternative.
 - **Dashboard:** [Keycloak and dashboard recipe](docs/dashboard.md).
+- **Dashboard widgets:** [MCP Apps and widget preview access](docs/widgets.md).
 - **Updating OCE:** [build and upgrade workflow](docs/upgrades.md).
 - **Manifest layout:** [Kustomize stages](docs/kustomize.md).
 - **Team Claw proposal:** [collaboration and identity plan](docs/team-claw-plan.md), pending agreement and implementation.

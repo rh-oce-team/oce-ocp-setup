@@ -275,3 +275,8 @@ Send a short request in the Agent Control UI and wait for its answer. Require a
 completed assistant response: an authenticated browser session or initialized
 WebSocket alone does not prove the selected Harness reached the model through the
 OpenShell route with the selected Harness.
+
+## Enable dashboard widgets
+
+After the Control UI works, follow [widget preview access](widgets.md) to expose
+the separate public renderer. The OAuth Route above does not expose that listener.
