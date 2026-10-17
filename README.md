@@ -21,8 +21,14 @@ scripts/build-occ
 - **Fresh cluster:** [cluster preparation](docs/cluster.md), then [OCC installation](docs/install.md).
 - **First Agent:** [private routing](docs/routing.md), [Agent creation](docs/agent.md), and [Control UI](docs/control-ui.md).
 - **Another Agent:** [additional-Agent recipe](docs/agents.md), using the existing images.
+- **Shared Agent:** [custom-model team Agent recipe](docs/shared-agent.md), with shared sessions and Gateway administration.
+- **Experimental team identities:** [Keycloak member login](docs/team-login.md), requiring [OCE PR #2596](https://github.com/openclaw/openclaw-enterprise/pull/2596), which is open and not yet merged.
+- **Experimental policy demo:** [deny, approve and retry](docs/policy-demo.md), requiring unmerged [OCE PR #2599](https://github.com/openclaw/openclaw-enterprise/pull/2599).
+- **GitHub CLI:** [attach a PAT to one Agent](docs/github-cli.md).
+- **Personal Keycloak login:** [reuse an existing account for another Agent](docs/agent-keycloak-login.md).
 - **Scoped owners:** [owner access](docs/owner-access.md); cluster-admin access remains an explicit alternative.
 - **Dashboard:** [Keycloak and dashboard recipe](docs/dashboard.md).
+- **OCC admin launcher:** [enable native Gateway administration](docs/native-admin.md).
 - **Dashboard widgets:** [MCP Apps and widget preview access](docs/widgets.md).
 - **Updating OCE:** [build and upgrade workflow](docs/upgrades.md).
 - **Manifest layout:** [Kustomize stages](docs/kustomize.md).

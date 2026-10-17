@@ -1,6 +1,12 @@
 # Proposal: a shared Team Claw on OpenShift
 
-**Status: proposed; awaiting team agreement before deployment.**
+**Status: original proposal.** A [local-account Keycloak trial](team-login.md) now
+requires [OCE PR #2596](https://github.com/openclaw/openclaw-enterprise/pull/2596)
+for explicit human Gateway identities. That PR is open and not yet merged
+(verified October 16, 2026); the trial requires a controller built with its changes.
+GitHub federation,
+verified co-authorship, and full multi-user/revocation qualification remain open.
+The gap analysis below records the earlier baseline.
 
 ## Overview and why this matters
 
@@ -181,15 +187,15 @@ adapter. Evaluate this existing contract before designing any new ingress API.
 
 ## Confirmed gaps and qualification work
 
-| Area | Current evidence | Required before full deployment |
-| --- | --- | --- |
-| OCE human Gateway identity | Kubernetes Compute permits only the shared principal and admin scope. | Extend the Compute/authentication contract for an operator-approved human identity path; retain separate OCC machine access. |
-| Browser routing | Both the Kubernetes operator route and our OpenShift proxy overwrite identity with a constant. | Add an authenticated per-person ingress path; prevent browser spoofing and direct bypass. Keep machine routes separate. |
-| OCE Agent admin launcher | Its support predicate requires the shared admin identity and admin device auto-approval. | Define a separate member collaboration surface or extend this contract. Do not expose the existing admin launcher as a member interface. |
-| Roles and lifecycle | Existing access checks authorize OCE operations; they do not establish per-person OpenClaw roles. | Define membership/role provisioning, persistence across redeploys, recovery, and revocation. Keep OCE IAM, Keycloak roles, and OpenClaw roles distinct. |
+| Area                          | Current evidence                                                                                                                      | Required before full deployment                                                                                                                                                                                    |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| OCE human Gateway identity    | Kubernetes Compute permits only the shared principal and admin scope.                                                                 | Extend the Compute/authentication contract for an operator-approved human identity path; retain separate OCC machine access.                                                                                       |
+| Browser routing               | Both the Kubernetes operator route and our OpenShift proxy overwrite identity with a constant.                                        | Add an authenticated per-person ingress path; prevent browser spoofing and direct bypass. Keep machine routes separate.                                                                                            |
+| OCE Agent admin launcher      | Its support predicate requires the shared admin identity and admin device auto-approval.                                              | Define a separate member collaboration surface or extend this contract. Do not expose the existing admin launcher as a member interface.                                                                           |
+| Roles and lifecycle           | Existing access checks authorize OCE operations; they do not establish per-person OpenClaw roles.                                     | Define membership/role provisioning, persistence across redeploys, recovery, and revocation. Keep OCE IAM, Keycloak roles, and OpenClaw roles distinct.                                                            |
 | Verified GitHub co-authorship | OpenClaw documents GitHub enrichment through Cloudflare Access or Tailscale. A generic proxy cannot assert a verified GitHub account. | Qualify an existing supported identity-linking path or implement a reviewed Keycloak/OIDC integration in OpenClaw. Do not spoof Cloudflare headers or accept pasted handles as proof. This gap extends beyond OCE. |
-| Shared repository credential | No Team Claw bot credential or publication proof exists. | Select the bot/App, scope repository permissions, configure credential delivery and egress, and prove clone/push/PR without exposing its token. |
-| Exact runtime support | Today's OpenClaw docs can describe features newer than OCE's pinned runtime. | Freeze compatible OCE/OpenClaw commits and image digests; verify profiles, roles, attribution, and harness behavior on those images. |
+| Shared repository credential  | No Team Claw bot credential or publication proof exists.                                                                              | Select the bot/App, scope repository permissions, configure credential delivery and egress, and prove clone/push/PR without exposing its token.                                                                    |
+| Exact runtime support         | Today's OpenClaw docs can describe features newer than OCE's pinned runtime.                                                          | Freeze compatible OCE/OpenClaw commits and image digests; verify profiles, roles, attribution, and harness behavior on those images.                                                                               |
 
 OCE product changes belong upstream in OCE, through its existing Driver and
 lifecycle contracts. This repository owns deployment manifests and recipes.

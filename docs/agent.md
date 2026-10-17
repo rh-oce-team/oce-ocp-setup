@@ -118,12 +118,16 @@ export CONFIGURATION_FILE=manifests/openshift/codex-luna-configuration.json
 **Create the Configuration and Agent.**
 
 ```bash
-export CONFIGURATION_ID="$(bin/occ configuration create \
-  --file "$CONFIGURATION_FILE" \
-  -o json | jq -r .id)"
-
-# CHOOSE: display name for this Agent, set before creation.
+# CHOOSE: display name for this Agent and its OpenClaw assistant.
 export AGENT_NAME='Shelly'
+
+jq --arg name "$AGENT_NAME" \
+  '.values.agents.entries.main.name = $name | .values.agents.entries.main.identity.name = $name' \
+  "$CONFIGURATION_FILE" > "$OCC_INPUT_DIRECTORY/named-configuration.json"
+
+export CONFIGURATION_ID="$(bin/occ configuration create \
+  --file "$OCC_INPUT_DIRECTORY/named-configuration.json" \
+  -o json | jq -r .id)"
 
 jq -n --arg name "$AGENT_NAME" --arg configuration "$CONFIGURATION_ID" --arg source "$SOURCE_ID" \
   '{name: $name, configurationId: $configuration,

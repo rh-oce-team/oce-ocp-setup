@@ -15,8 +15,9 @@ RPCs, Console pages, credentials, or private workspace data.
 This recipe assumes this repository's `oce` Helm release in `openclaw-system`,
 private Gateway routing, the default OpenShift ingress controller, a namespaced
 CA Issuer, and a dedicated Codex Agent. It uses the cluster's existing apps wildcard
-DNS and router certificate. Shared-domain OCC cookies require a different preview
-domain; the helper refuses that configuration. Stop concurrent Helm/Installation
+DNS and router certificate. For shared-domain OCC cookies, use the
+[separate-domain preview procedure](native-admin-previews.md); this helper
+refuses the overlapping apps-domain configuration. Stop concurrent Helm/Installation
 changes while applying this update. OCC restarts briefly; deploying the Agent
 interrupts its connections while retaining its PVCs.
 

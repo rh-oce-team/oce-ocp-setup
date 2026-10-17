@@ -1,0 +1,10 @@
+{
+  "name": "${AGENT_NAME}-model",
+  "type": "openai",
+  "config": {
+    "base_url": "${OPENAI_BASE_URL}"
+  },
+  "secrets": {
+    "api_key": "${SECRET_REF}"
+  }
+}
