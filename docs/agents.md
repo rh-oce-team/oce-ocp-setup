@@ -141,11 +141,16 @@ bin/occ credential-source get "$SOURCE_ID"
 
 The Codex example includes its required model metadata. No API key goes in
 the Configuration. Add initial Agent files through OCC after deployment, as
-described at the end of this recipe.
+described at the end of this recipe. The managed Configuration also sets the
+OpenClaw assistant name to `AGENT_NAME`; its internal agent ID remains `main`.
 
 ```bash
+jq --arg name "$AGENT_NAME" \
+  '.values.agents.entries.main.name = $name | .values.agents.entries.main.identity.name = $name' \
+  "$CONFIGURATION_FILE" > "$AGENT_INPUT_DIRECTORY/named-configuration.json"
+
 export CONFIGURATION_ID="$(bin/occ configuration create \
-  --file "$CONFIGURATION_FILE" -o json | jq -r .id)"
+  --file "$AGENT_INPUT_DIRECTORY/named-configuration.json" -o json | jq -r .id)"
 
 jq -n --arg name "$AGENT_NAME" --arg configuration "$CONFIGURATION_ID" \
   --arg source "$SOURCE_ID" '{
