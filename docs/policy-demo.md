@@ -1,8 +1,7 @@
 # Demo a denied request, approve its policy, and retry
 
-**Experimental prerequisite:** build and deploy an OCE controller containing
-[PR #2599](https://github.com/openclaw/openclaw-enterprise/pull/2599), which is open
-and not yet merged (verified October 16, 2026). Use dedicated Codex with OpenShell,
+Build and deploy an OCE controller from main after PR #2599 merged
+(October 19, 2026). Use dedicated Codex with OpenShell,
 a working model credential, and an OCC administrator login. The Agent's Control UI
 and OCC Console are separate browser tabs.
 

@@ -23,7 +23,7 @@ scripts/build-occ
 - **Another Agent:** [additional-Agent recipe](docs/agents.md), using the existing images.
 - **Shared Agent:** [custom-model team Agent recipe](docs/shared-agent.md), with shared sessions and Gateway administration.
 - **Experimental team identities:** [Keycloak member login](docs/team-login.md), requiring [OCE PR #2596](https://github.com/openclaw/openclaw-enterprise/pull/2596), which is open and not yet merged.
-- **Experimental policy demo:** [deny, approve and retry](docs/policy-demo.md), requiring unmerged [OCE PR #2599](https://github.com/openclaw/openclaw-enterprise/pull/2599).
+- **OpenShell policy demo:** [deny, approve and retry](docs/policy-demo.md), available on OCE main after PR #2599 merged.
 - **GitHub CLI:** [attach a PAT to one Agent](docs/github-cli.md).
 - **Personal Keycloak login:** [reuse an existing account for another Agent](docs/agent-keycloak-login.md).
 - **Scoped owners:** [owner access](docs/owner-access.md); cluster-admin access remains an explicit alternative.
@@ -49,7 +49,7 @@ main should silently alter installed images. Record source commits, chart versio
 and image digests for every release.
 
 The recipes were exercised on OpenShift 4.22.17, Kubernetes 1.35.8 and amd64,
-with OpenShell 0.1.3, Crunchy 5.8.9 and single-instance PostgreSQL without backups.
+with OpenShell 0.1.4, Crunchy 5.8.9 and single-instance PostgreSQL without backups.
 This is a development setup, not a production qualification. Dashboard OIDC is
 separate from OCC/Agent login. Existing OpenShell private-network authentication
 remains development-only and must retain its network isolation.

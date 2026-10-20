@@ -131,3 +131,48 @@ For a stopped or partially applied release, follow the upstream
 [recovery procedure](https://github.com/openclaw/openclaw-enterprise/blob/main/docs/guides/deploy/production-upgrade-recovery.md)
 instead of starting a second upgrade. No push or deployment runs automatically
 when this repository or OCE main is fetched.
+
+## Upgrade OpenShell separately
+
+OpenShell has its own Helm release and SQLite PVC. Back up that database
+consistently and retain its encryption/JWT Secrets before changing versions.
+Keep the live values, including the dashboard OIDC overlay; applying only the
+fresh-install values would discard that overlay. Agent PVCs and credentials stay
+in place, but connections can pause while the gateway restarts.
+
+Download and verify the selected charts using the
+[OpenShell chart preparation](cluster.md#stage-openshell-separately), then run:
+
+```bash
+# REQUIRED: a new private directory for this OpenShell upgrade.
+export OPENSHELL_UPGRADE_DIRECTORY="$OCC_INPUT_DIRECTORY/openshell-0.1.4-upgrade"
+
+install -d -m 700 "$OPENSHELL_UPGRADE_DIRECTORY"
+
+helm get values openshell-gateway -n openshell-system -o yaml \
+  > "$OPENSHELL_UPGRADE_DIRECTORY/values-before.yaml"
+
+cp "$OPENSHELL_UPGRADE_DIRECTORY/values-before.yaml" \
+  "$OPENSHELL_UPGRADE_DIRECTORY/values.yaml"
+
+export OPENSHELL_IMAGE_PINS="$PWD/manifests/openshift/openshell-gateway-values.yaml"
+
+yq -i '.gateway.image = load(strenv(OPENSHELL_IMAGE_PINS)).gateway.image |
+  .sandboxRuntime.image = load(strenv(OPENSHELL_IMAGE_PINS)).sandboxRuntime.image |
+  .supervisor.image = load(strenv(OPENSHELL_IMAGE_PINS)).supervisor.image' \
+  "$OPENSHELL_UPGRADE_DIRECTORY/values.yaml"
+
+helm upgrade openshell-gateway \
+  "$OCC_INPUT_DIRECTORY/openshell-charts/helm-chart-0.1.4.tgz" \
+  --namespace openshell-system \
+  -f "$OPENSHELL_UPGRADE_DIRECTORY/values.yaml" \
+  --wait --timeout 7m
+
+oc -n openshell-system rollout status statefulset/openshell-gateway --timeout=5m
+```
+
+Existing Sandboxes retain their supervisor image until restarted or replaced.
+Deploy each intended Agent through OCC to create its new-version Sandbox; keep
+its existing Configuration and credential sources. Verify a model turn, tool
+credentials and the dashboard afterward. Share the refreshed protected gateway
+values with maintainers separately from Secrets.

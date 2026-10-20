@@ -202,9 +202,9 @@ unrelated Pod; a healthy Route alone does not prove the policy boundary.
 ## Stage OpenShell separately
 
 The OpenShell values candidate
-uses pinned v0.1.3 gateway images and OpenShift admission settings.
-OpenShell v0.1.3 requires OpenShift 4.19 or later with Landlock available.
-Use the published gateway and workspace Helm charts for the same `0.1.3`
+uses pinned v0.1.4 gateway images and OpenShift admission settings.
+OpenShell v0.1.4 requires OpenShift 4.19 or later with Landlock available.
+Use the published gateway and workspace Helm charts for the same `0.1.4`
 release, then
 review its ServiceAccounts, network policies, SCC admission, and image
 references against this cluster. The values allow unauthenticated OCE calls to
@@ -262,7 +262,7 @@ oc -n agent-sandbox-system rollout status \
 ```
 
 Pull the published charts from GitHub Container Registry into the private input
-directory. The chart version is `0.1.3` (without the release tag's leading
+directory. The chart version is `0.1.4` (without the release tag's leading
 `v`). Verify both package checksums, then render the gateway without applying it:
 
 **Download and verify OpenShell charts.**
@@ -273,20 +273,20 @@ directory. The chart version is `0.1.3` (without the release tag's leading
 install -d -m 700 "$OCC_INPUT_DIRECTORY/openshell-charts"
 
 helm pull oci://ghcr.io/nvidia/openshell/helm-chart \
-  --version 0.1.3 --destination "$OCC_INPUT_DIRECTORY/openshell-charts"
+  --version 0.1.4 --destination "$OCC_INPUT_DIRECTORY/openshell-charts"
 
 helm pull oci://ghcr.io/nvidia/openshell/openshell-workspace \
-  --version 0.1.3 --destination "$OCC_INPUT_DIRECTORY/openshell-charts"
+  --version 0.1.4 --destination "$OCC_INPUT_DIRECTORY/openshell-charts"
 
 printf '%s  %s\n' \
-  5a82e27d6cf4089fa16d96c87d9fc0fe62f65fa05341465bc749ba5ab91abb33 \
-  "$OCC_INPUT_DIRECTORY/openshell-charts/helm-chart-0.1.3.tgz" \
-  8dd207ae894d68aa5fbf825df44951d8321df6611a7c68609ba9e389b49d39a7 \
-  "$OCC_INPUT_DIRECTORY/openshell-charts/openshell-workspace-0.1.3.tgz" \
+  7a30cddb8a93bc3a444a3eb619bb0cface3982ef5d59ad318cbe04dde03b6f7e \
+  "$OCC_INPUT_DIRECTORY/openshell-charts/helm-chart-0.1.4.tgz" \
+  2c249c2a3897f737917a79f141ff2821802d9a85b6bdffa2fbf585e9cbde3df4 \
+  "$OCC_INPUT_DIRECTORY/openshell-charts/openshell-workspace-0.1.4.tgz" \
   | shasum -a 256 -c
 
 helm template openshell-gateway \
-  "$OCC_INPUT_DIRECTORY/openshell-charts/helm-chart-0.1.3.tgz" \
+  "$OCC_INPUT_DIRECTORY/openshell-charts/helm-chart-0.1.4.tgz" \
   --namespace openshell-system \
   --set agentSandbox.preflight.enabled=false \
   -f manifests/openshift/openshell-gateway-values.yaml \
@@ -310,7 +310,7 @@ oc apply -f \
   manifests/openshift/base/openshell/openshell-gateway-network-policy.yaml
 
 helm upgrade --install openshell-gateway \
-  "$OCC_INPUT_DIRECTORY/openshell-charts/helm-chart-0.1.3.tgz" \
+  "$OCC_INPUT_DIRECTORY/openshell-charts/helm-chart-0.1.4.tgz" \
   --namespace openshell-system \
   -f manifests/openshift/openshell-gateway-values.yaml \
   --wait --timeout 7m

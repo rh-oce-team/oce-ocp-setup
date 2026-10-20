@@ -149,3 +149,29 @@ The credential profile authorizes its configured endpoint for the approved tool;
 a missing Agent network-policy addition alone does not establish a denial for
 this credentialed request. Use the Python, Node or curl examples in the
 [policy demo](policy-demo.md) for repeatable deny → approve demonstrations.
+
+## Refresh dashboard data on demand
+
+An HTML widget's browser requests do not inherit this OpenShell credential.
+A public GitHub API request can therefore fail even when the Agent's authenticated
+`gh api user` succeeds. Do not embed the PAT or the Harness placeholder in widget
+HTML or browser storage.
+
+For repository summaries without a supported authenticated dashboard binding,
+ask the Agent to fetch data with `gh`, then replace the same pinned widget with a
+timestamped snapshot. Its **Request fresh snapshot** button can use the supported
+`openclaw.prompt.send` bridge to ask the Agent to fetch and update it again.
+Refresh requires a click; do not poll, refresh on page load, or add background jobs.
+Keep the last successful snapshot visible if a later request fails. This is an
+Agent turn, not a direct browser fetch, and requires a connected Control UI.
+
+Bound repository summaries at the API query: for example, 25 recently updated
+open PRs, 10 recent merges and 10 related items. Request only displayed fields.
+Label partial lists clearly and build author filters from the loaded subset.
+Include the same limits in the widget’s refresh prompt; fetching every page and
+then trimming the displayed list does not reduce the request cost.
+
+When using REST query parameters with `gh api -f` or `-F`, specify `--method GET`
+for read-only search: those flags otherwise select POST. Check real results before
+reporting a credential or repository permission failure. An authenticated GraphQL
+read is another option when supported by the token and endpoint policy.

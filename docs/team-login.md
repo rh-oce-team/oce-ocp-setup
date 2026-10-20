@@ -5,7 +5,7 @@ OCC Console authentication and other Agents stay unchanged.
 
 **Experimental prerequisite:** [OCE PR #2596: explicit Gateway identities and
 native people in OCC](https://github.com/openclaw/openclaw-enterprise/pull/2596)
-is open and **not yet merged** (verified October 16, 2026). Before following this
+is open and **not yet merged** (verified October 19, 2026). Before following this
 recipe, deploy an OCE controller image that includes that PR, use its matching
 CLI, and select a compatible OpenClaw runtime. An unmodified OCE main checkout
 is insufficient while the PR remains unmerged. Checking out the PR locally does
@@ -164,6 +164,15 @@ receive `operator.admin`. Device auto-approval excludes admin scopes. The defaul
 member role permits collaboration in other people's sessions, subject to
 OpenClaw's session-sharing rules. Gateway/model administration stays restricted.
 
+**Preserve the machine profile's role during the first rollout.** Identity scopes
+alone do not override the new default member role. While the previous operator
+route remains available, use its People administration to assign the
+`occ-workspace-files` profile the `maintainer` role. If that route cannot connect,
+use the Gateway's Pod-local operator-password RPC to call `users.list`, then
+`users.setRole` with that exact machine profile ID and `role: "maintainer"`.
+Do not assign this role to every person. Missing machine permissions can leave
+OCC reconciliation retrying before its OpenShell Sandbox is created.
+
 ```bash
 bin/occ configuration update "$CONFIGURATION_ID" \
   --file "$TEAM_LOGIN_DIRECTORY/configuration-keycloak.json"
@@ -176,14 +185,7 @@ export DEPLOYMENT_ID="$(jq -er .id "$TEAM_LOGIN_DIRECTORY/deployment-response.js
 bin/occ agent deployment-status "$AGENT_ID" "$DEPLOYMENT_ID"
 ```
 
-**Preserve the machine profile's role during the first rollout.** Identity scopes
-alone do not override the new default member role. While the previous operator
-route remains available, use its People administration to assign the
-`occ-workspace-files` profile the `maintainer` role. If that route cannot connect,
-use the Gateway's Pod-local operator-password RPC to call `users.list`, then
-`users.setRole` with that exact machine profile ID and `role: "maintainer"`.
-Do not assign this role to every person. Missing machine permissions can leave
-OCC reconciliation retrying before its OpenShell Sandbox is created.
+
 
 Require deployment status `succeeded`. Existing PVCs, profiles and sessions are
 retained. The rollout restarts this Agent's Gateway and harness.
