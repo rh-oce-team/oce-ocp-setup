@@ -21,8 +21,9 @@ scripts/build-occ
 - **Fresh cluster:** [cluster preparation](docs/cluster.md), then [OCC installation](docs/install.md).
 - **First Agent:** [private routing](docs/routing.md), [Agent creation](docs/agent.md), and [Control UI](docs/control-ui.md).
 - **Another Agent:** [additional-Agent recipe](docs/agents.md), using the existing images.
+- **Native OpenClaw:** [dedicated Agent through OpenShell](docs/native-harness.md), using the standard pinned runtime; no PR #1982 build is required.
 - **Shared Agent:** [custom-model team Agent recipe](docs/shared-agent.md), with shared sessions and Gateway administration.
-- **Experimental team identities:** [Keycloak member login](docs/team-login.md), requiring [OCE PR #2596](https://github.com/openclaw/openclaw-enterprise/pull/2596), which is open and not yet merged.
+- **Experimental team identities:** [Keycloak member login](docs/team-login.md), requiring [OCE PR #3049](https://github.com/openclaw/openclaw-enterprise/pull/3049), which is open and not yet merged.
 - **OpenShell policy demo:** [deny, approve and retry](docs/policy-demo.md), available on OCE main after PR #2599 merged.
 - **GitHub CLI:** [attach a PAT to one Agent](docs/github-cli.md).
 - **Personal Keycloak login:** [reuse an existing account for another Agent](docs/agent-keycloak-login.md).

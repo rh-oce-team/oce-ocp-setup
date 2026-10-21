@@ -1,9 +1,11 @@
-# Build main and upgrade OCE
+# Build and upgrade OCE
 
 Run from this repository root with a dedicated, clean OCE checkout and protected
-baseline files matching the live installation. Build from upstream main, then
-freeze its commit and immutable image digests. Building never changes serving
-images. Review upstream changes before applying them.
+baseline files matching the live installation. Select upstream main or a reviewed
+integration commit, then freeze that commit and immutable image digests. Building
+never changes serving images. Review changes before applying them. Use a dedicated kubeconfig copy and keep
+it unchanged through completion or recovery; the helper binds recovery to its
+exact bytes.
 
 Controller-only upgrades stop OCC's API and worker for migrations and rollout,
 but do not request Agent deployments. Console and OCC-proxied operations pause;
@@ -21,7 +23,28 @@ export OCE_CHECKOUT='/absolute/path/to/openclaw-enterprise'
 export KUBECONFIG='/absolute/path/to/kubeconfig'
 
 export OCC_INPUT_DIRECTORY='/absolute/path/to/cluster-inputs'
+```
 
+**Choose one source.** For upstream main:
+
+```bash
+git -C "$OCE_CHECKOUT" fetch origin main
+
+export OCC_REV="$(git -C "$OCE_CHECKOUT" rev-parse origin/main)"
+```
+
+For a reviewed checkout that includes unmerged PRs, use this **instead**:
+
+```bash
+test -z "$(git -C "$OCE_CHECKOUT" status --porcelain)"
+
+export OCC_REV="$(git -C "$OCE_CHECKOUT" rev-parse HEAD)"
+```
+
+The wrapper honors `OCC_REV`. Setting only `OCE_CHECKOUT` still selects upstream
+main by default, which would omit unmerged PR changes.
+
+```bash
 # Choose controller for frequent OCC updates; runtime or both build those images.
 scripts/build-images controller
 
@@ -56,8 +79,12 @@ Complete the selected OCE release's [upgrade checklist](https://github.com/openc
 before continuing. Compare protected inputs with live Helm values and the mounted
 Installation Secret. Save a private baseline and back up PostgreSQL before
 migrations; the dev database has no automatic backups. Back up Agent volumes
-before runtime changes when recovery could require restoring state. Pause other
-operators' Helm changes through completion or recovery.
+before runtime changes when recovery could require restoring state. Verify that
+every running Agent supports the selected runtime and OpenClaw pin. For a trial
+that needs a custom runtime, qualify the replacement image before redeploying it.
+If intentionally discarding that trial, delete its Agent through OCC and wait for
+cleanup before the upgrade. Preserve the remaining Agents' PVCs. Pause other operators' Helm changes through completion or
+recovery.
 
 Set your own protected OCC key:
 

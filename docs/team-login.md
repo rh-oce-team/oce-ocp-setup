@@ -3,10 +3,11 @@
 Use one Codex/OpenShell Agent with separate human profiles and shared sessions.
 OCC Console authentication and other Agents stay unchanged.
 
-**Experimental prerequisite:** [OCE PR #2596: explicit Gateway identities and
-native people in OCC](https://github.com/openclaw/openclaw-enterprise/pull/2596)
-is open and **not yet merged** (verified October 19, 2026). Before following this
-recipe, deploy an OCE controller image that includes that PR, use its matching
+**Experimental prerequisite:** [OCE PR #3049: explicit human Gateway identities](https://github.com/openclaw/openclaw-enterprise/pull/3049)
+is open and **not yet merged** (verified October 21, 2026). It contains the
+Gateway identity admission split from #2596. The separate OCC People-listing PR
+is not required; OCC Console authentication stays unchanged. Before following
+this recipe, deploy an OCE controller image that includes #3049, use its matching
 CLI, and select a compatible OpenClaw runtime. An unmodified OCE main checkout
 is insufficient while the PR remains unmerged. Checking out the PR locally does
 not update the running controller; follow the [upgrade recipe](upgrades.md) first.
@@ -31,7 +32,7 @@ Set every marked value; keep all inputs outside Git.
 ```bash
 umask 077
 
-# REQUIRED: checkout including PR #2596, matching the installed controller and CLI.
+# REQUIRED: checkout including PR #3049, matching the installed controller and CLI.
 export OCE_CHECKOUT='/absolute/path/to/openclaw-enterprise'
 
 # REQUIRED: cluster and OCC administrator credentials.
@@ -166,7 +167,7 @@ OpenClaw's session-sharing rules. Gateway/model administration stays restricted.
 
 **Preserve the machine profile's role during the first rollout.** Identity scopes
 alone do not override the new default member role. While the previous operator
-route remains available, use its People administration to assign the
+route remains available, use the OpenClaw Control UI's People administration to assign the
 `occ-workspace-files` profile the `maintainer` role. If that route cannot connect,
 use the Gateway's Pod-local operator-password RPC to call `users.list`, then
 `users.setRole` with that exact machine profile ID and `role: "maintainer"`.
@@ -184,8 +185,6 @@ export DEPLOYMENT_ID="$(jq -er .id "$TEAM_LOGIN_DIRECTORY/deployment-response.js
 
 bin/occ agent deployment-status "$AGENT_ID" "$DEPLOYMENT_ID"
 ```
-
-
 
 Require deployment status `succeeded`. Existing PVCs, profiles and sessions are
 retained. The rollout restarts this Agent's Gateway and harness.

@@ -3,7 +3,9 @@
 Use this recipe after OCC, OpenShell v0.1.4, private Envoy routing, and the
 Console Route are installed. Each run creates one OCC Namespace and one Agent.
 Use dedicated Codex through OpenShell and the **runtime image already configured
-in the Installation**. There are no image builds here.
+in the Installation**. There are no image builds here. For native OpenClaw instead of Codex, complete the
+[native OpenClaw recipe](native-harness.md) and use its
+Configuration at section 4.
 
 An OCC Installation administrator who also has the required OpenShift operator
 permissions runs this recipe. A teammate's project-admin role in their own
@@ -38,6 +40,9 @@ export OCC_SERVICE_KEY_FILE='<private OCC service-key file>'
 # REQUIRED: new DNS-style name for this Codex Agent.
 export AGENT_NAME='codex-luna-alice'
 
+# OPTIONAL: Agent and OpenClaw profile display name; defaults to AGENT_NAME.
+export AGENT_DISPLAY_NAME='Codex Luna Alice'
+
 # CHOOSE: cluster-admin for admin teammates; scoped for non-admin owners.
 export CONTROL_UI_ACCESS_MODE='scoped'
 
@@ -62,9 +67,9 @@ test ! -e "$AGENT_INPUT_DIRECTORY/agent-response.json"
 export CONFIGURATION_FILE=manifests/openshift/codex-luna-configuration.json
 ```
 
-`AGENT_NAME` is assigned when the Agent is created; no later rename is needed.
-It also names the private directory and OCC Namespace here, so use a DNS-style
-value such as `shelly` even if you prefer a capitalized display name.
+`AGENT_NAME` names the private directory and OCC Namespace, so use a DNS-style
+value such as `shelly`. `AGENT_DISPLAY_NAME` names the Agent in OCC and its
+OpenClaw profile at creation; omit it to use `AGENT_NAME`.
 
 Choose `cluster-admin` when every intended teammate already has that OpenShift
 role. The Control UI recipe then skips the per-user Service grant. Choose
@@ -142,17 +147,17 @@ bin/occ credential-source get "$SOURCE_ID"
 The Codex example includes its required model metadata. No API key goes in
 the Configuration. Add initial Agent files through OCC after deployment, as
 described at the end of this recipe. The managed Configuration also sets the
-OpenClaw assistant name to `AGENT_NAME`; its internal agent ID remains `main`.
+OpenClaw assistant name to `AGENT_DISPLAY_NAME` (or `AGENT_NAME` when omitted); its internal agent ID remains `main`.
 
 ```bash
-jq --arg name "$AGENT_NAME" \
+jq --arg name "${AGENT_DISPLAY_NAME:-$AGENT_NAME}" \
   '.values.agents.entries.main.name = $name | .values.agents.entries.main.identity.name = $name' \
   "$CONFIGURATION_FILE" > "$AGENT_INPUT_DIRECTORY/named-configuration.json"
 
 export CONFIGURATION_ID="$(bin/occ configuration create \
   --file "$AGENT_INPUT_DIRECTORY/named-configuration.json" -o json | jq -r .id)"
 
-jq -n --arg name "$AGENT_NAME" --arg configuration "$CONFIGURATION_ID" \
+jq -n --arg name "${AGENT_DISPLAY_NAME:-$AGENT_NAME}" --arg configuration "$CONFIGURATION_ID" \
   --arg source "$SOURCE_ID" '{
     name:$name, configurationId:$configuration, executionMode:"dedicated",
     harnessAuth:{method:"credential_source", sourceId:$source},

@@ -1,9 +1,9 @@
 # Proposal: a shared Team Claw on OpenShift
 
 **Status: original proposal.** A [local-account Keycloak trial](team-login.md) now
-requires [OCE PR #2596](https://github.com/openclaw/openclaw-enterprise/pull/2596)
+requires [OCE PR #3049](https://github.com/openclaw/openclaw-enterprise/pull/3049)
 for explicit human Gateway identities. That PR is open and not yet merged
-(verified October 16, 2026); the trial requires a controller built with its changes.
+(verified October 21, 2026); the trial requires a controller built with its changes.
 GitHub federation,
 verified co-authorship, and full multi-user/revocation qualification remain open.
 The gap analysis below records the earlier baseline.
