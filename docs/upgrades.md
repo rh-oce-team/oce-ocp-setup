@@ -84,6 +84,15 @@ when upstream changes its bundled Codex version.
 
 Skip the source selection and build above and resolve the images published at `quay.io/aipcc/base-images/agentic` instead. The [install guide](install.md#use-the-published-images-instead-of-building) describes the helper and its checks. Resolving never changes serving images.
 
+The published images are built from the carry repository
+`red-hat-data-services/openclaw-enterprise`, not upstream
+`openclaw/openclaw-enterprise`. Set `OCE_CHECKOUT` to a checkout of the carry
+repository: the resolver requires the image's OCE commit to be on that
+checkout's `origin/main`, and the release checkout must freeze the chart and
+CLI at the carry revision the image was built from. The release-order check
+below then compares installed and published revisions within the carry
+repository's main.
+
 ```bash
 # REQUIRED: full SHA of the OCE revision behind the installed controller, from the last release record.
 # Set it first: scripts/resolve-images overwrites published-images.json.
@@ -110,6 +119,15 @@ fi
 
 Check the release order yourself: `latest` can trail `origin/main`, and OCE's upgrade helper does not compare revisions. Take `INSTALLED_REV` from the release record saved with the last release: the `source-revision` file in its upgrade evidence directory, or `oceCommit` in the `runtime-source.json` or `published-images.json` kept with it. A later resolve overwrites `published-images.json`, and a build overwrites `runtime-source.json`.
 
+When no release record exists on the machine, or the installed revision is no
+longer fetchable (for example an in-cluster build from a rewritten carry
+branch), take `INSTALLED_REV` from the cluster: the controller ImageStream tag
+matching the deployed digest, or the deployed image's
+`io.openshell.harness.version` label. The git ancestry check cannot run for an
+unfetchable revision; before continuing, confirm the direction with the
+evidence you have, such as the deployed and candidate runtime OpenClaw pins,
+and that the candidate controller digest differs from the deployed one.
+
 Pass `runtime` for the runtime image only, or no argument for both. A runtime-only run takes the OCE revision from `OCC_REV` and refuses a runtime image whose OpenClaw commit is not that revision's pin; build a deliberately newer runtime instead. Set `OCC_REV` to the checkout you upgrade with, not to a value left from the build path:
 
 ```bash
@@ -120,7 +138,63 @@ scripts/resolve-images runtime
 source "$OCC_INPUT_DIRECTORY/images.env"
 ```
 
-The published images are built from OCE main, so a checkout with unmerged PRs needs the build above. The published runtime also has a different base image than the one the recipes were verified with, for example `/usr/bin/python3.14` where the policy demo used `/usr/bin/python3.11`. Compare executable paths in Installation allow-lists, such as sandbox policy ceilings, `binaries` and `toolBinaries`, before redeploying Agents.
+The published images are built from the carry main, so a checkout with unmerged carry changes still needs the build above. The published runtime also has a different base image than the in-cluster build, for example `/usr/bin/python3.14` where the in-cluster build ships `/usr/bin/python3.11`, and it drops `/usr/bin/git` and `/usr/bin/curl` entirely. Compare executable paths in Installation allow-lists, such as sandbox policy ceilings, `binaries` and `toolBinaries`, before redeploying Agents: export the candidate image filesystem without running it and check every named path.
+
+```bash
+podman create --name runtime-inspect "$RUNTIME_IMAGE" >/dev/null
+podman export runtime-inspect > runtime-root.tar
+podman rm runtime-inspect >/dev/null
+tar -tf runtime-root.tar | grep -x 'usr/bin/python3\(\.11\|\.14\)\?'
+```
+
+Paths absent from the image make their Installation entries inert rather than
+failing the upgrade: on 2026-10-22 the `source-control` sandbox network policy
+(github.com for `/usr/bin/git`) and the demo and docs sandbox ceilings naming
+`/usr/bin/python3.11` and `/usr/bin/curl` went inert on the published runtime,
+while the Codex executable, `/usr/local/bin/node` and `/usr/local/bin/gh` were
+unchanged, so Agent execution and model turns were unaffected. Removing the
+scratch image export afterwards keeps the private input directory small.
+
+### Switch an in-cluster installation to the published images
+
+An installation built through the in-cluster BuildConfigs can move to the
+published images with the flow above. When the machine holds no protected
+baseline from that installation, reconstruct the baseline files from live
+state; the upgrade helper compares both against live Helm values and the
+mounted Installation Secret before any mutation, so a mismatch fails safe.
+
+```bash
+helm get values oce -n openclaw-system -o yaml > "$OCC_INPUT_DIRECTORY/values.yaml"
+
+oc -n openclaw-system get secret \
+  "$(yq -er '.installation.secretName' "$OCC_INPUT_DIRECTORY/values.yaml")" -o json |
+  jq -er '.data["installation.yaml"]' | base64 -d \
+  > "$OCC_INPUT_DIRECTORY/installation.yaml"
+
+chmod 600 "$OCC_INPUT_DIRECTORY/values.yaml" "$OCC_INPUT_DIRECTORY/installation.yaml"
+```
+
+Retrieve a service key through the bootstrap claim read Pod described in the
+[install guide](install.md#retrieve-bootstrap-credentials-and-authenticate)
+when none exists locally; set the Pod image to the installed controller digest
+and the claim to `bootstrap.password.claimName` from the live values. Delete
+the Pod as soon as the files are copied.
+
+After the upgrade, verify every Agent that was running. `bin/occ agent get`
+must show a new `activeRevisionId`, the Agent namespaces' PVC names and UIDs
+must be unchanged, and a real model turn must complete inside each gateway
+Pod. The runtime image bundles the OpenClaw CLI, so a turn needs no browser:
+
+```bash
+# One gateway Deployment per running Agent, named gateway-<gateway-id>.
+oc -n "$GATEWAY_NAMESPACE" exec deploy/gateway-<gateway-id> -- \
+  node /app/openclaw.mjs agent -m 'Reply with exactly: upgrade-ok' \
+  --json --timeout 180
+```
+
+Require `"summary": "completed"` and the reply text in
+`result.payloads[0].text`; an initialized session alone does not prove the
+selected Harness reached the model.
 
 ## 2. Prepare the upgrade
 
