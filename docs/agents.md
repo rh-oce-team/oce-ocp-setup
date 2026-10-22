@@ -222,7 +222,7 @@ oc auth can-i use scc/oce-fixed-uid-1000 -n "$GATEWAY_NAMESPACE" \
 Require `yes`. OpenShell's Sandbox continues to use `openshell-sandbox` under
 `restricted-v2`; do not replace that identity with the Gateway ServiceAccount.
 
-## 6. Deploy, verify files, and create the Control UI Route
+## 6. Deploy and enable both Control UI entry points
 
 ```bash
 bin/occ agent deploy "$AGENT_ID" -o json \
@@ -246,7 +246,11 @@ export OCC_INPUT_DIRECTORY="$AGENT_INPUT_DIRECTORY"
 The OAuth proxy resources are namespace-local, so each Agent's separate Namespace
 gets its own Route, cookie Secret, and exact Service access grant. Sign in with
 OpenShift OAuth and require a completed model response through Codex.
-Finish that procedure before starting the recipe again for the next Agent.
+Then complete the required [OCC admin launcher procedure](native-admin.md).
+The direct OAuth Route does not enable OCC's **Open admin console** button.
+Reuse the installed global launcher domain/cookie settings; prepare this Agent's
+own HTTPS endpoint, merge its admin origin, and deploy. Require both entry points
+to work before starting the recipe again for the next Agent.
 
 ## 7. Grant the teammate access and hand off
 
@@ -255,7 +259,7 @@ to provision or select the teammate's OCC account, grant the exact Namespace,
 Agent, Configuration, model Secret, source, and final revision permissions, and
 for `scoped` access, grant their OpenShift username access to the Control UI
 Service. For `cluster-admin`, skip that Kubernetes grant. Use the final
-revision returned by the Control UI procedure, not the earlier deployment.
+revision returned by the admin launcher procedure, not an earlier deployment.
 
 OpenShift cluster-admin does not grant OCC permissions. Keep the exact OCC
 owner grants for teammates who manage their Agent through the Console. If they

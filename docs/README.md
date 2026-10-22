@@ -1,6 +1,6 @@
 # Deploy OCE on OpenShift: the operator recipe
 
-Run the five steps below from the repository root. Each linked page contains
+Run the six steps below from the repository root. Each linked page contains
 command boxes to run in order; finish that page before continuing here.
 Use **dedicated Codex through OpenShell**. This repository owns deployment inputs only; OCE application code stays in its
 separate source checkout.
@@ -77,6 +77,14 @@ username and apply the exact Service grant. Skip that grant for an admin-only
 trial. Deploy the updated Configuration, open the printed URL, sign in through
 OpenShift OAuth, and send a request. A completed assistant response is the finish
 line; a healthy Pod or connected browser alone is insufficient.
+
+**6. [Enable the OCC admin launcher](native-admin.md).**
+
+Complete the global Helm enablement once, then prepare the exact HTTPS admin
+endpoint and Configuration origin for this Agent. Sign back into OCC, select
+**Refresh access**, and require **Open admin console** to open a connected Control
+UI. The OpenShift OAuth Route in step 5 does not enable this button. Keep both
+entry points: direct user access and OCC-authorized administration.
 
 ## Create additional Agents
 

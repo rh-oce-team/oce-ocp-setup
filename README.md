@@ -29,7 +29,7 @@ scripts/build-occ
 - **Personal Keycloak login:** [reuse an existing account for another Agent](docs/agent-keycloak-login.md).
 - **Scoped owners:** [owner access](docs/owner-access.md); cluster-admin access remains an explicit alternative.
 - **Dashboard:** [Keycloak and dashboard recipe](docs/dashboard.md).
-- **OCC admin launcher:** [enable native Gateway administration](docs/native-admin.md).
+- **OCC admin launcher:** [required setup for each Agent](docs/native-admin.md); enable globally once, then add each Agent's HTTPS endpoint and origin.
 - **Dashboard widgets:** [MCP Apps and widget preview access](docs/widgets.md).
 - **Updating OCE:** [build and upgrade workflow](docs/upgrades.md).
 - **Manifest layout:** [Kustomize stages](docs/kustomize.md).

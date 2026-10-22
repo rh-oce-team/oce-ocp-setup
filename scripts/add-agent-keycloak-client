@@ -58,8 +58,20 @@ client = {
     "redirectUris": [ui + "/oauth2/callback"],
     "webOrigins": [ui],
     "attributes": {"pkce.code.challenge.method": "S256"},
-    "defaultClientScopes": ["basic", "profile", "roles", "web-origins", "acr"],
     "protocolMappers": [
+        {
+            "name": "agent-username",
+            "protocol": "openid-connect",
+            "protocolMapper": "oidc-usermodel-property-mapper",
+            "config": {
+                "user.attribute": "username",
+                "claim.name": "preferred_username",
+                "jsonType.label": "String",
+                "id.token.claim": "true",
+                "access.token.claim": "true",
+                "userinfo.token.claim": "true",
+            },
+        },
         {
             "name": "agent-membership",
             "protocol": "openid-connect",

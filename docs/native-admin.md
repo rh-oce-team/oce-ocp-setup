@@ -1,7 +1,11 @@
 # Enable the OCC admin Control UI launcher
 
-Enable **Gateway administration → Open admin console** on an existing Agent's
-OCC page. This is full native administration as `occ-workspace-files`, authorized
+Complete this required step after deploying each Agent to enable
+**Gateway administration → Open admin console** on its OCC page.
+Initial `prepare-inputs` output disables the feature until private routing and
+admin HTTPS are ready. Creating an OpenShift OAuth or Keycloak user Route does
+not enable it. Enable the global feature once, then add each Agent's endpoint
+and Configuration origin. This is full native administration as `occ-workspace-files`, authorized
 by the human's OCC session and exact Agent `administer` permission. It is separate
 from the [Keycloak member login](team-login.md), which keeps individual identities.
 Keep durable configuration in OCE; native edits can be overwritten on redeploy.
@@ -16,7 +20,7 @@ checkout's `docs/guides/deploy/native-admin.md` for its version-specific contrac
 ## 1. Select the Agent and trusted domains
 
 Run from this repository root with the existing OCC CLI connection and explicit
-cluster kubeconfig. **Fill in the three paths/IDs below.** Use a new output directory
+cluster kubeconfig. **Set the paths and Agent identifiers below.** Use a new output directory
 outside both checkouts. `OCC_URL` is your existing HTTPS Console origin.
 
 ```bash
@@ -30,9 +34,11 @@ export OCC_NAMESPACE='ns_REPLACE'
 
 export AGENT_ID='agt_REPLACE'
 
-export ADMIN_OUTPUT_DIRECTORY="$HOME/.local/state/oce/native-admin/first-agent"
+export ADMIN_OUTPUT_DIRECTORY="$HOME/.local/state/oce/native-admin/$AGENT_ID"
 
-mkdir -m 700 "$ADMIN_OUTPUT_DIRECTORY"
+test ! -e "$ADMIN_OUTPUT_DIRECTORY"
+
+install -d -m 700 "$ADMIN_OUTPUT_DIRECTORY"
 
 oc whoami
 
@@ -48,9 +54,19 @@ bin/occ -o json configuration get "$CONFIGURATION_ID" > "$ADMIN_OUTPUT_DIRECTORY
 
 export CONSOLE_HOST="$(OCC_URL="$OCC_URL" python3 -c 'import os,urllib.parse; print(urllib.parse.urlsplit(os.environ["OCC_URL"]).hostname)')"
 
-export ADMIN_DOMAIN="admin.$CONSOLE_HOST"
+helm -n openclaw-system get values oce -o yaml \
+  > "$ADMIN_OUTPUT_DIRECTORY/values.before.yaml"
 
-export COOKIE_DOMAIN="$CONSOLE_HOST"
+# Reuse installed global domains when enabling the launcher for another Agent.
+if test "$(yq -r '.agentNativeAdmin.enabled // false' "$ADMIN_OUTPUT_DIRECTORY/values.before.yaml")" = true; then
+  export ADMIN_DOMAIN="$(yq -er '.agentNativeAdmin.domain' "$ADMIN_OUTPUT_DIRECTORY/values.before.yaml")"
+
+  export COOKIE_DOMAIN="$(yq -er '.agentNativeAdmin.sharedCookieDomain' "$ADMIN_OUTPUT_DIRECTORY/values.before.yaml")"
+else
+  export ADMIN_DOMAIN="admin.$CONSOLE_HOST"
+
+  export COOKIE_DOMAIN="$CONSOLE_HOST"
+fi
 
 export ADMIN_HOST="$(python3 - "$ADMIN_OUTPUT_DIRECTORY/installation-record.json" "$OCC_NAMESPACE" "$AGENT_ID" "$ADMIN_DOMAIN" <<'PYHOST'
 import hashlib,json,sys
@@ -117,14 +133,12 @@ policy from the OCC installation.
 
 ## 3. Enable the OCC feature
 
-For the first Agent, save and edit the live values. For additional Agents, retain
-these installed global settings; repeat the per-Agent certificate, origin and
-deployment steps.
+For the first Agent, edit the live values saved in section 1. If the launcher
+is already enabled, skip this section and continue with section 4; section 1
+reuses the installed domains. Additional Agents need their own certificate,
+origin and deployment, without another global Helm change.
 
 ```bash
-helm -n openclaw-system get values oce -o yaml \
-  > "$ADMIN_OUTPUT_DIRECTORY/values.before.yaml"
-
 cp "$ADMIN_OUTPUT_DIRECTORY/values.before.yaml" "$ADMIN_OUTPUT_DIRECTORY/values.yaml"
 
 yq -i '.agentNativeAdmin.enabled = true |
@@ -165,7 +179,8 @@ jq --arg origin "$ADMIN_ORIGIN" '
   .values.gateway.auth.trustedProxy.userHeader = "x-occ-identity" |
   .values.gateway.auth.trustedProxy.allowUsers |= ((. // []) + ["occ-workspace-files"] | unique) |
   .values.gateway.auth.identityScopes["occ-workspace-files"] |= ((. // []) + ["operator.admin"] | unique) |
-  .values.gateway.auth.trustedProxy.deviceAutoApprove = {enabled:true,scopes:["operator.read","operator.write"]} |
+  .values.gateway.auth.trustedProxy.deviceAutoApprove.enabled = true |
+  .values.gateway.auth.trustedProxy.deviceAutoApprove.scopes |= ((. // []) + ["operator.admin"] | unique) |
   .values.gateway.controlUi.enabled = true |
   .values.gateway.controlUi.allowedOrigins |= ((. // []) + [$origin] | unique)
 ' "$ADMIN_OUTPUT_DIRECTORY/configuration.before.json" \
@@ -186,6 +201,11 @@ Repeat only the status read until `succeeded`; investigate `failed` or prolonged
 pending work before admitting another revision. Preserve `gateway.publicOrigin`
 when keeping a separate human-facing Keycloak route.
 
+The launcher support check requires `operator.admin` in both the machine
+identity's scopes and device auto-approval scopes. Read/write-only auto-approval
+leaves this revision unsupported. Preserve each human's existing identity scopes
+and roles; the launcher uses the separate machine identity.
+
 ## 5. Verify and retain
 
 Sign out of OCC and sign in again to replace the old host-only session cookie.
@@ -197,10 +217,29 @@ If previews moved, open a saved dashboard and interact with a widget before
 retiring its old Route. Anonymous requests to the admin host must be denied or
 sent to OCC login; they must never open an authenticated Gateway session.
 
-After verification, copy the candidate `values.yaml` and any changed
-`installation.yaml` into your protected cluster baseline used for upgrades.
+After verification, if section 3 changed Helm values, copy the candidate
+`values.yaml` and any changed `installation.yaml` into your protected cluster
+baseline used for upgrades.
 Retain the before files and rendered ingress resources outside Git.
 To withdraw one launcher endpoint, delete its prepared `ingress.yaml` only;
 keep Keycloak routes and PVCs. To undo the global feature or preview domain,
 restore both saved Helm values and startup Installation together through the
 selected OCE checkout's `docs/guides/deploy/production-installation-changes.md`.
+
+## If the button is missing
+
+In your signed-in OCC browser, open this status URL with the Agent's exact IDs:
+
+```text
+https://<Console hostname>/namespaces/<Namespace ID>/agents/<Agent ID>/native-admin
+```
+
+- `disabled`: complete the global Helm enablement in section 3.
+- HTTP `403` or `denied`: the OCC account needs `administer` on this Agent;
+  OpenShift cluster-admin does not grant OCC permissions.
+- `unsupported`: complete section 4, including the exact admin origin and
+  `operator.admin` device auto-approval, then deploy the Configuration.
+- `stopped` or `unavailable`: resolve Agent lifecycle/deployment readiness first.
+- `available`: sign back into OCC after the cookie-domain change, select
+  **Refresh access**, and open the launcher. HTTPS/DNS failures after clicking
+  need section 2's exact-host ingress and certificate.

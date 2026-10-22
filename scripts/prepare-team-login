@@ -64,7 +64,7 @@ alpha = {
             "provider": "oidc",
             "clientID": s.get("clientId", "team-claw-browser"),
             "clientSecretFile": "/config/client-secret",
-            "scope": "openid profile",
+            "scope": "openid",
             "allowedGroups": [s.get("allowedGroup", "/team-claw-members")],
             "code_challenge_method": "S256",
             "oidcConfig": {
@@ -295,10 +295,11 @@ g = v["gateway"]
 auth = g["auth"]
 tp = auth.setdefault("trustedProxy", {})
 tp["allowUsers"] = ["occ-workspace-files", *s["identities"].values()]
-tp["deviceAutoApprove"] = {
-    "enabled": True,
-    "scopes": ["operator.read", "operator.write"],
-}
+approval = tp.setdefault("deviceAutoApprove", {})
+approval["enabled"] = True
+approval["scopes"] = list(
+    dict.fromkeys([*approval.get("scopes", []), "operator.read", "operator.write"])
+)
 auth["identityScopes"] = {
     "occ-workspace-files": ["operator.admin"],
     **{

@@ -1,0 +1,78 @@
+#!/usr/bin/env python3
+"""Create missing local realm users; preserve existing accounts and credentials."""
+
+import json
+import os
+import pathlib
+import runpy
+import urllib.parse
+
+context = runpy.run_path(
+    str(pathlib.Path(__file__).with_name("create-team-login-realm")),
+    run_name="existing_realm",
+)
+request = context["request"]
+save = context["save"]
+token = context["token"]
+realm = context["realm"]
+if realm == "master":
+    raise SystemExit("Use an application realm, not the administrator realm")
+admin = context["admin"] + "/" + urllib.parse.quote(realm, safe="")
+request(admin, token=token)
+names = json.loads(pathlib.Path(os.environ["TEAM_USERS_FILE"]).read_text())
+if (
+    not names
+    or not all(isinstance(n, str) and n and n.strip() == n for n in names)
+    or len({n.casefold() for n in names}) != len(names)
+):
+    raise SystemExit("Supply unique, nonempty teammate usernames")
+password = pathlib.Path(os.environ["TEAM_INITIAL_PASSWORD_FILE"]).read_text().rstrip("\r\n")
+if not password or "\n" in password or "\r" in password:
+    raise SystemExit("Supply one temporary password in the protected input file")
+
+
+def find(name):
+    query = urllib.parse.urlencode({"username": name, "exact": "true"})
+    users = request(admin + "/users?" + query, token=token)
+    return [u for u in users if u["username"].casefold() == name.casefold()]
+
+
+# Inspect every account before creating any; disabled or ambiguous users need review.
+existing = {}
+for name in names:
+    matches = find(name)
+    if len(matches) > 1 or (matches and not matches[0].get("enabled")):
+        raise SystemExit("A requested account is disabled or ambiguous; no users created")
+    if matches:
+        existing[name] = matches[0]
+
+created = []
+users = []
+for name in names:
+    if name in existing:
+        user = existing[name]
+    else:
+        request(
+            admin + "/users",
+            {
+                "username": name.lower(),
+                "firstName": name,
+                "enabled": True,
+                "requiredActions": ["UPDATE_PASSWORD"],
+                "credentials": [
+                    {"type": "password", "value": password, "temporary": True}
+                ],
+            },
+            "POST",
+            token,
+        )
+        matches = find(name)
+        if len(matches) != 1:
+            raise RuntimeError("Created account could not be resolved; inspect before retry")
+        user = matches[0]
+        created.append(user["username"])
+    users.append({"requested": name, "username": user["username"], "id": user["id"]})
+
+save("normalized-users.json", [u["username"] for u in users])
+save("prepared-users.json", {"realm": realm, "users": users, "created": created})
+print(json.dumps({"realm": realm, "created": created, "existingPasswordsChanged": False}))
