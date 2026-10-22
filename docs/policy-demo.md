@@ -1,7 +1,10 @@
 # Demo a denied request, approve its policy, and retry
 
-Build and deploy an OCE controller from main after PR #2599 merged
-(October 19, 2026). Use dedicated Codex with OpenShell,
+Deploy an OCE controller built from main after
+[OCE PR #2599, per-Agent sandbox network policies](https://github.com/openclaw/openclaw-enterprise/pull/2599)
+merged (October 19, 2026), either built in-cluster or
+[published](install.md#use-the-published-images-instead-of-building).
+Use dedicated Codex with OpenShell,
 a working model credential, and an OCC administrator login. The Agent's Control UI
 and OCC Console are separate browser tabs.
 
@@ -15,6 +18,8 @@ The example ceiling permits four exact executable/hostname pairs, on port 443.
 It does not allow other Python versions, other executables or arbitrary Google
 subdomains. Check the resolved interpreter inside your image; this trial used
 `/usr/bin/python3.11`.
+
+The demo was verified with `/usr/bin/python3.11`. The [published runtime image](install.md#use-the-published-images-instead-of-building) has `/usr/bin/python3.14` and no `python3.11`; `curl` and `git` are at the same paths. To use it, copy the ceiling file into your protected setup directory, replace `/usr/bin/python3.11` with `/usr/bin/python3.14` in the copy, set `DEMO_CEILING_FILE` to the copy in the block below, and use `python3.14` in the prompts. That variant has not been verified end to end.
 
 ```bash
 # REQUIRED: protected inputs for the deployed OCC installation.

@@ -47,6 +47,8 @@ resource settings. If a shared setting needs to change, complete the selected OC
 source's `docs/guides/deploy/production-installation-changes.md` before proceeding.
 Adding another Agent to an already prepared Installation does not restart OCC.
 
+The [published runtime image](install.md#use-the-published-images-instead-of-building) provides `/usr/local/bin/node` as a regular file, so the Credential Gateway entry above matches it. That path has not been verified end to end.
+
 ## 2. Prepare the Agent and model credential
 
 Start [additional-Agent creation](agents.md) at section 1. Before running its

@@ -199,6 +199,8 @@ bin/occ iam access-binding create --file "$AGENT_INPUT_DIRECTORY/credential-sour
 The operator grants image pulls and Gateway admission. The image-pull binding
 name includes the Agent identity so a second Agent cannot replace the first grant.
 
+With the [published images](install.md#use-the-published-images-instead-of-building) the image-pull binding goes unused. Apply it anyway, so a later switch to an in-cluster build keeps working.
+
 ```bash
 oc -n openclaw-system create rolebinding "oce-runtime-pull-${AGENT_SA#agent-}" \
   --clusterrole=system:image-puller \

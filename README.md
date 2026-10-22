@@ -35,6 +35,10 @@ scripts/build-occ
 - **Manifest layout:** [Kustomize stages](docs/kustomize.md).
 - **Team Claw proposal:** [collaboration and identity plan](docs/team-claw-plan.md), pending agreement and implementation.
 
+## Container images
+
+By default the controller and runtime images are built inside the cluster ([build step](docs/install.md#build-the-two-images-inside-openshift)). To consume the published `quay.io/aipcc/base-images/agentic/oce-controller` and `oce-runtime` images instead, `scripts/resolve-images` pins them to `linux/amd64` digests and the build is skipped: see the [install](docs/install.md#use-the-published-images-instead-of-building) and [upgrade](docs/upgrades.md#use-the-published-images-instead-of-building) steps. The published images are built from OCE main, so recipes that need unmerged OCE changes still need a build.
+
 ## Repositories and private state
 
 `manifests/openshift/` contains cluster and Agent assets. `manifests/dashboard/`

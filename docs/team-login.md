@@ -12,6 +12,8 @@ CLI, and select a compatible OpenClaw runtime. An unmodified OCE main checkout
 is insufficient while the PR remains unmerged. Checking out the PR locally does
 not update the running controller; follow the [upgrade recipe](upgrades.md) first.
 
+The [published images](install.md#use-the-published-images-instead-of-building) are built from OCE main and do not include [OCE PR #3049, explicit human Gateway identities](https://github.com/openclaw/openclaw-enterprise/pull/3049) while it is unmerged, so build the controller from a checkout that does.
+
 Reuse the existing Keycloak server with either a **new realm** or an existing
 application realm. The existing-realm path below preserves current passwords
 and creates only missing accounts. Local Keycloak accounts have their own passwords; matching an OpenShift username does not link
