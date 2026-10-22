@@ -51,7 +51,9 @@ ready and the private Console Route file prepared.
 **2. [Build the images and install OCC](install.md).**
 
 Build the unmodified OCE main revision using its standard OpenClaw runtime pin.
-Wait for both builds to finish. Image digests, network addresses, and cluster
+Wait for both builds to finish, or
+[use the published images](install.md#use-the-published-images-instead-of-building)
+and skip the build. Image digests, network addresses, and cluster
 identity are discovered by the commands. Configure the Codex OpenShell workspace,
 create Secrets, install OCC, grant tenant permissions, and retrieve bootstrap
 credentials. Finish with OCC healthy and the default Namespace `ready`.

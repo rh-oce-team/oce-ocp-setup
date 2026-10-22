@@ -20,6 +20,8 @@ same source and evidence directory when resuming.
 
 ## 1. Build the selected candidate
 
+To deploy published images instead of building, set the three variables below and follow [the published images](#use-the-published-images-instead-of-building) at the end of this section.
+
 ```bash
 # REQUIRED: dedicated OCE release checkout, not another person's working tree.
 export OCE_CHECKOUT='/absolute/path/to/openclaw-enterprise'
@@ -77,6 +79,48 @@ validation. Follow that checkout's dependency setup; do not reuse an incompatibl
 installed graph. OpenShell's approved Codex executable path must match the chosen
 runtime image; review `manifests/openshift/openshell-installation-fragment.yaml`
 when upstream changes its bundled Codex version.
+
+### Use the published images instead of building
+
+Skip the source selection and build above and resolve the images published at `quay.io/aipcc/base-images/agentic` instead. The [install guide](install.md#use-the-published-images-instead-of-building) describes the helper and its checks. Resolving never changes serving images.
+
+```bash
+# REQUIRED: full SHA of the OCE revision behind the installed controller, from the last release record.
+# Set it first: scripts/resolve-images overwrites published-images.json.
+export INSTALLED_REV='<full commit SHA>'
+
+git -C "$OCE_CHECKOUT" fetch origin main
+
+scripts/resolve-images controller
+
+source "$OCC_INPUT_DIRECTORY/images.env"
+
+export OCC_REV="$(jq -er .oceCommit "$OCC_INPUT_DIRECTORY/published-images.json")"
+
+if git -C "$OCE_CHECKOUT" merge-base --is-ancestor "$INSTALLED_REV" "$OCC_REV"; then
+  # Move only the dedicated, clean release checkout to the exact published revision.
+  git -C "$OCE_CHECKOUT" switch --detach "$OCC_REV"
+
+  scripts/build-occ
+else
+  echo 'The published revision is older than the installed one; stop.' >&2
+  false
+fi
+```
+
+Check the release order yourself: `latest` can trail `origin/main`, and OCE's upgrade helper does not compare revisions. Take `INSTALLED_REV` from the release record saved with the last release: the `source-revision` file in its upgrade evidence directory, or `oceCommit` in the `runtime-source.json` or `published-images.json` kept with it. A later resolve overwrites `published-images.json`, and a build overwrites `runtime-source.json`.
+
+Pass `runtime` for the runtime image only, or no argument for both. A runtime-only run takes the OCE revision from `OCC_REV` and refuses a runtime image whose OpenClaw commit is not that revision's pin; build a deliberately newer runtime instead. Set `OCC_REV` to the checkout you upgrade with, not to a value left from the build path:
+
+```bash
+export OCC_REV="$(git -C "$OCE_CHECKOUT" rev-parse HEAD)"
+
+scripts/resolve-images runtime
+
+source "$OCC_INPUT_DIRECTORY/images.env"
+```
+
+The published images are built from OCE main, so a checkout with unmerged PRs needs the build above. The published runtime also has a different base image than the one the recipes were verified with, for example `/usr/bin/python3.14` where the policy demo used `/usr/bin/python3.11`. Compare executable paths in Installation allow-lists, such as sandbox policy ceilings, `binaries` and `toolBinaries`, before redeploying Agents.
 
 ## 2. Prepare the upgrade
 
@@ -154,8 +198,8 @@ The helper updates the `--values` and `--installation` files with the selected
 images. Share those refreshed files with teammates after verification; older
 copies will fail the next upgrade's live-state comparison.
 
-For a runtime release, build and verify `runtime`, then use `--runtime-image
-"$RUNTIME_IMAGE"` instead of `--controller-image`. Adding both image flags changes
+For a runtime release, build and verify (or resolve the published) `runtime`,
+then use `--runtime-image "$RUNTIME_IMAGE"` instead of `--controller-image`. Adding both image flags changes
 both components. Check the upstream helper's current prerequisites for the
 selected release, including repository brokers when enabled.
 

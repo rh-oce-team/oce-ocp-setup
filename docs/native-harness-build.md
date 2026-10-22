@@ -28,7 +28,8 @@ Agents, such as experimental human identity ingress. Those PRs are independent
 of the native Harness choice.
 
 Follow [the upgrade recipe](upgrades.md) to freeze the source, build and verify
-the standard controller and runtime, back up the Installation, and run OCE's
+the standard controller and runtime (resolve the published images only when no
+unmerged PR is needed), back up the Installation, and run OCE's
 coordinated upgrade helper. The helper updates the runtime fleet and briefly
 interrupts Agents; this is an operator operation, not part of each Agent creation.
 Recheck the capability after upgrade, then return to

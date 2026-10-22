@@ -30,6 +30,8 @@ oc version
 
 ## Build the two images inside OpenShift
 
+To deploy the images published on Quay instead, skip this section and use [the published images](#use-the-published-images-instead-of-building).
+
 This path builds the unmodified OCE `origin/main` source in the OpenShift internal
 registry. The runtime uses that revision's reviewed OpenClaw source pin and Codex
 dependency patch; no native-worker trial patch or local OpenClaw checkout is used.
@@ -106,6 +108,35 @@ source "$OCC_INPUT_DIRECTORY/images.env"
 The runtime tag records both source revisions. Retain `runtime-source.json`,
 `source.tar`, and `build-images.json` to reproduce the build. A completed image
 build still requires enrollment, workspace, and model verification after deployment.
+
+## Use the published images instead of building
+
+To skip the build, deploy the images published at `quay.io/aipcc/base-images/agentic/oce-controller` and `oce-runtime`. `scripts/resolve-images` resolves each tag (`latest` unless you set `PUBLISHED_CONTROLLER_TAG` or `PUBLISHED_RUNTIME_TAG`) to a `linux/amd64` digest through the registry's anonymous read API and checks every digest it follows. The controller image records its OCE commit and the runtime image its OpenClaw commit. The helper requires the OCE commit to be on `origin/main` and the runtime's OpenClaw commit to be the pin in that commit's `deploy/runtime/Dockerfile`. It changes nothing in the cluster or in the OCE checkout.
+
+**Resolve and freeze the published images.**
+
+```bash
+# Both published images are linux/amd64, so every node must be amd64.
+oc get nodes -o custom-columns=NAME:.metadata.name,ARCH:.status.nodeInfo.architecture
+
+# The OCE commit the controller was built from must be in the checkout.
+git -C "$OCE_CHECKOUT" fetch origin main
+
+scripts/resolve-images
+
+source "$OCC_INPUT_DIRECTORY/images.env"
+
+export OCC_REV="$(jq -er .oceCommit "$OCC_INPUT_DIRECTORY/published-images.json")"
+
+# Freeze the chart and CLI at the commit the controller image was built from.
+git -C "$OCE_CHECKOUT" switch --detach "$OCC_REV"
+```
+
+The published images are built from OCE main, so recipes that need unmerged OCE changes still need the build above. The digest checks show that the fetched documents agree with each other, not who published them, and the runtime image does not record its OCE commit, so only its OpenClaw pin is checked. Verify signatures under your own policy; the repositories carry cosign `.sig` tags. Tags can move. To repeat a release, reuse the saved `images.env` and `published-images.json`; a later run overwrites them, so keep a copy with each release's records. To select a specific build, set the tag variables to a build tag from the registry, such as `<commit>-<timestamp>`.
+
+Both repositories are public, so no pull Secret is needed, but every control and Agent node pulls from `quay.io` the first time it sees a digest, and the runtime image is about 0.5 GB. The runtime image-pull grants in the Agent recipes go unused with these images; apply them anyway, so a later switch to an in-cluster build keeps working. Continue with the PostgreSQL steps below. A resolved image still requires enrollment, workspace, and model verification after deployment.
+
+The published runtime keeps `/usr/bin/python3.14` where the in-cluster build ships `python3.11`, and OpenShell matches policy binaries on the resolved executable path. Compare the paths named in Installation allow-lists, such as sandbox policy ceilings and `binaries`, against the image before use; see [upgrades](upgrades.md) before redeploying Agents on a newer image.
 
 ## Install and initialize PostgreSQL
 
@@ -214,11 +245,10 @@ The helper creates private copies and fills in the cluster-specific fields.
 
 Use the current kubeconfig context. The workers must already have the
 `oce-role=control` and `oce-role=agent` labels assigned during cluster preparation.
-Wait for both image builds to complete, then set the inputs and generate the files.
+Once both images are built or resolved, set the inputs and generate the files.
 Use your existing private directory and chosen admin email if they differ below.
-The block reads the saved Route hostname and resolves the image digests from the
-builds. On a repeat build, replace `oce-controller-1` and `oce-runtime-1` with the
-completed build names shown by `oc -n openclaw-system get builds`.
+The block reads the saved Route hostname and the image digests that
+`scripts/verify-images` or `scripts/resolve-images` saved in `images.env`.
 
 **Set inputs and prepare private YAML.**
 
@@ -230,15 +260,7 @@ export OCC_CONSOLE_HOST="$(yq -r '.spec.host' \
 
 export OCC_ADMIN_EMAIL="${OCC_ADMIN_EMAIL:-occ-admin@example.test}"
 
-export CONTROLLER_IMAGE="$(oc -n openclaw-system get imagestreamtag \
-  "$(oc -n openclaw-system get build oce-controller-1 \
-    -o jsonpath='{.spec.output.to.name}')" \
-  -o jsonpath='{.image.dockerImageReference}')"
-
-export RUNTIME_IMAGE="$(oc -n openclaw-system get imagestreamtag \
-  "$(oc -n openclaw-system get build oce-runtime-1 \
-    -o jsonpath='{.spec.output.to.name}')" \
-  -o jsonpath='{.image.dockerImageReference}')"
+source "$OCC_INPUT_DIRECTORY/images.env"
 
 scripts/prepare-inputs
 ```

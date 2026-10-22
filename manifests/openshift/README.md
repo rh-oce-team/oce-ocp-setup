@@ -14,6 +14,7 @@ base/kustomization.yaml        All base resources for inspection
 overlays/test/                 Test profile, with a Kustomization for each stage
 ../../scripts/prepare-kustomize  Prepare private overlays with deployment overrides
 ../../scripts/verify-images     Verify built image architectures and save digest references
+../../scripts/resolve-images    Pin published Quay images to amd64 digests instead of building
 ../../scripts/grant-tenant-access  Apply exact worker/API grants
 ```
 

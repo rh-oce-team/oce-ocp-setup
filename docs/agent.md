@@ -191,6 +191,8 @@ oc -n openclaw-system create rolebinding "oce-runtime-pull-${AGENT_SA#agent-}" \
   --dry-run=client -o yaml | oc apply -f -
 ```
 
+With the [published images](install.md#use-the-published-images-instead-of-building) the runtime comes from public `quay.io` and this grant goes unused. Apply it anyway, so a later switch to an in-cluster build keeps working.
+
 The Compute Driver's `allow-dns` policy grants the Agent Gateway Pod DNS
 egress to the configured OpenShift DNS Pods on UDP/TCP ports `53` and `5353`.
 
