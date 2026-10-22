@@ -157,6 +157,9 @@ Resolve any failed Helm release before continuing.
 The following merge preserves existing identities, origins, model settings and
 Secret references. Omitted Secret bindings stay unchanged. Review explicit UI or
 device-approval opt-outs with the Configuration owner before enabling them.
+The device-approval scopes must include `operator.admin`: the controller's
+availability check reports `unsupported` without it, and the console then shows
+the admin UI as not enabled in the Agent's current version.
 
 ```bash
 jq --arg origin "$ADMIN_ORIGIN" '
@@ -165,7 +168,7 @@ jq --arg origin "$ADMIN_ORIGIN" '
   .values.gateway.auth.trustedProxy.userHeader = "x-occ-identity" |
   .values.gateway.auth.trustedProxy.allowUsers |= ((. // []) + ["occ-workspace-files"] | unique) |
   .values.gateway.auth.identityScopes["occ-workspace-files"] |= ((. // []) + ["operator.admin"] | unique) |
-  .values.gateway.auth.trustedProxy.deviceAutoApprove = {enabled:true,scopes:["operator.read","operator.write"]} |
+  .values.gateway.auth.trustedProxy.deviceAutoApprove = {enabled:true,scopes:["operator.admin"]} |
   .values.gateway.controlUi.enabled = true |
   .values.gateway.controlUi.allowedOrigins |= ((. // []) + [$origin] | unique)
 ' "$ADMIN_OUTPUT_DIRECTORY/configuration.before.json" \
