@@ -12,8 +12,9 @@ CLI, and select a compatible OpenClaw runtime. An unmodified OCE main checkout
 is insufficient while the PR remains unmerged. Checking out the PR locally does
 not update the running controller; follow the [upgrade recipe](upgrades.md) first.
 
-Reuse the dashboard's Keycloak server with a **new realm**. Local Keycloak
-accounts have their own passwords; matching an OpenShift username does not link
+Reuse the existing Keycloak server with either a **new realm** or an existing
+application realm. The existing-realm path below preserves current passwords
+and creates only missing accounts. Local Keycloak accounts have their own passwords; matching an OpenShift username does not link
 that account to GitHub or establish verified Git co-authorship. No OpenShift role
 or OCC account is required to use this login. One Gateway remains one shared
 workspace and tool-authority boundary.
@@ -25,9 +26,14 @@ Email is not an authorization input. Each initial password requires replacement.
 
 ## 1. Select the Agent and members
 
-Run from this repository root. Install the existing Keycloak server first using
-the [dashboard recipe](dashboard.md). Preserve that server and its database.
-Set every marked value; keep all inputs outside Git.
+Run from this repository root. For a new Agent, follow sections 1–6 of the
+[additional Agent recipe](agents.md), stopping after deployment succeeds and
+before its OpenShift OAuth Route step. Continue here for Keycloak login instead;
+skip the per-owner OCC handoff unless members also need OCC access.
+
+Install Keycloak first using the [dashboard recipe](dashboard.md), or reuse an
+existing server. Preserve that server and its database. Set every marked value;
+keep all inputs outside Git.
 
 ```bash
 umask 077
@@ -89,16 +95,61 @@ Cluster administrators are not automatically Gateway administrators. Review the
 member list explicitly; exclude support and service accounts. A teammate need
 not have logged into OpenShift to be included.
 
-## 2. Create the new realm and prepare the proxy
+## 2. Prepare realm accounts and the proxy
 
-The realm helper reads Keycloak's operator-created administrator Secret through
-`oc`, authenticates to its HTTPS Admin API and creates the realm. It refuses an
-existing realm or saved settings. On failure, keep its files and inspect the
-partial setup rather than deleting users or rerunning with replacement passwords.
+**Choose one account path.** For a new realm, the helper generates a separate
+random temporary password for every member and refuses an existing realm or
+saved login settings:
 
 ```bash
 scripts/create-team-login-realm
+```
 
+**To reuse accounts in an existing application realm, run this block instead.**
+It creates only missing enabled users; existing accounts and passwords stay
+unchanged. Keep the temporary password file outside Git. All newly created
+accounts must change that password at first login.
+
+```bash
+# REQUIRED: existing realm, and unused client/group names for this Agent.
+export KEYCLOAK_REALM='existing-application-realm'
+
+export KEYCLOAK_CLIENT_ID='oce-team-claw-browser'
+
+export KEYCLOAK_GROUP_NAME='oce-team-claw-members'
+
+export TEAM_INITIAL_PASSWORD_FILE="$TEAM_LOGIN_DIRECTORY/new-user-temporary-password"
+
+read -r -s -p 'Temporary password for missing users: ' TEAM_INITIAL_PASSWORD
+
+printf '\n'
+
+printf '%s' "$TEAM_INITIAL_PASSWORD" > "$TEAM_INITIAL_PASSWORD_FILE"
+
+unset TEAM_INITIAL_PASSWORD
+
+scripts/prepare-team-login-users
+
+export TEAM_USERS_FILE="$TEAM_LOGIN_DIRECTORY/normalized-users.json"
+
+scripts/add-agent-keycloak-client
+```
+
+Use the normalized realm usernames in `TEAM_ADMIN_USERS_FILE`, too. The helper
+refuses disabled or ambiguous accounts and never resets an existing password.
+The client supplies its own username and membership claims and requests only
+`openid`; the existing realm need not have a standard `profile` scope. Keep its
+profile requirements and session policy; users may need to complete their
+profile at login. The eight-hour session defaults below
+apply to a new realm created by this recipe, not to an existing realm.
+
+Both paths use the operator-created Keycloak administrator Secret through `oc`.
+After a partial failure, inspect the saved inputs and realm before continuing;
+do not recreate clients or accounts to replace credentials.
+
+**Continue here after either account path:**
+
+```bash
 bin/occ configuration get "$CONFIGURATION_ID" -o json \
   > "$TEAM_LOGIN_DIRECTORY/current-configuration.json"
 
@@ -108,10 +159,6 @@ scripts/prepare-team-login
 
 oc apply --dry-run=server \
   -f "$TEAM_LOGIN_DIRECTORY/proxy-manifests-private.json"
-
-oc apply -f "$TEAM_LOGIN_DIRECTORY/proxy-manifests-private.json"
-
-oc -n "$GATEWAY_NAMESPACE" rollout status deployment/oce-team-claw-oidc --timeout=3m
 ```
 
 The proxy uses OAuth2 Proxy 7.15.5 pinned by amd64 digest, authorization-code login
@@ -161,18 +208,55 @@ For another Agent using these same accounts, follow
 
 The prepared Configuration keeps existing model and workspace settings. Members
 receive `operator.read` and `operator.write`; nominated administrators also
-receive `operator.admin`. Device auto-approval excludes admin scopes. The default
-member role permits collaboration in other people's sessions, subject to
-OpenClaw's session-sharing rules. Gateway/model administration stays restricted.
+receive `operator.admin`. Preparation preserves existing device-approval scopes,
+including admin approval required by the OCC launcher. Each person's explicit
+identity scopes and role still restrict access. The default member role permits
+collaboration in other people's sessions, subject to OpenClaw's session-sharing
+rules. Gateway/model administration stays restricted.
 
-**Preserve the machine profile's role during the first rollout.** Identity scopes
-alone do not override the new default member role. While the previous operator
-route remains available, use the OpenClaw Control UI's People administration to assign the
-`occ-workspace-files` profile the `maintainer` role. If that route cannot connect,
-use the Gateway's Pod-local operator-password RPC to call `users.list`, then
-`users.setRole` with that exact machine profile ID and `role: "maintainer"`.
-Do not assign this role to every person. Missing machine permissions can leave
-OCC reconciliation retrying before its OpenShell Sandbox is created.
+**Define roles before assigning them.** First deploy the role definitions with
+`maintainer` as the temporary default. This preserves the existing operator
+access while the machine profile gets its explicit role. Keep the new public
+proxy unapplied until the final member-default deployment succeeds.
+
+```bash
+jq --slurpfile login "$TEAM_LOGIN_DIRECTORY/configuration-keycloak.json" \
+  '{values:.values} | .values.gateway.roles=$login[0].values.gateway.roles | .values.gateway.roles.default="maintainer"' \
+  "$TEAM_LOGIN_DIRECTORY/current-configuration.json" \
+  > "$TEAM_LOGIN_DIRECTORY/configuration-role-definitions.json"
+
+bin/occ configuration update "$CONFIGURATION_ID" \
+  --file "$TEAM_LOGIN_DIRECTORY/configuration-role-definitions.json"
+
+bin/occ agent deploy "$AGENT_ID" -o json \
+  > "$TEAM_LOGIN_DIRECTORY/role-definitions-deployment.json"
+
+export ROLE_DEPLOYMENT_ID="$(jq -er .id "$TEAM_LOGIN_DIRECTORY/role-definitions-deployment.json")"
+
+bin/occ agent deployment-status "$AGENT_ID" "$ROLE_DEPLOYMENT_ID"
+```
+
+Wait for `succeeded`. Then assign only the exact `occ-workspace-files` machine
+profile the `maintainer` role through the Gateway's Pod-local operator RPC:
+
+```bash
+export GATEWAY_POD="$(oc -n "$GATEWAY_NAMESPACE" get pods \
+  -l "openclaw.dev/agent=$AGENT_ID,openclaw.dev/workload-role=gateway" \
+  -o jsonpath='{.items[0].metadata.name}')"
+
+oc -n "$GATEWAY_NAMESPACE" exec "$GATEWAY_POD" -c gateway -- \
+  node /app/openclaw.mjs gateway call users.list --json \
+  > "$TEAM_LOGIN_DIRECTORY/profiles-before.json"
+
+export MACHINE_PROFILE_ID="$(jq -er '.profiles | map(select(.displayName=="occ-workspace-files")) | if length==1 then .[0].id else error("Expected one machine profile") end' \
+  "$TEAM_LOGIN_DIRECTORY/profiles-before.json")"
+
+oc -n "$GATEWAY_NAMESPACE" exec "$GATEWAY_POD" -c gateway -- \
+  node /app/openclaw.mjs gateway call users.setRole --json \
+  --params "$(jq -nc --arg id "$MACHINE_PROFILE_ID" '{profileId:$id,role:"maintainer"}')"
+```
+
+Apply the prepared human scopes and `member` default:
 
 ```bash
 bin/occ configuration update "$CONFIGURATION_ID" \
@@ -191,15 +275,24 @@ retained. The rollout restarts this Agent's Gateway and harness.
 
 ## 4. Complete first login and close the old route
 
+After the final deployment succeeds, open the Keycloak proxy:
+
 ```bash
+oc apply -f "$TEAM_LOGIN_DIRECTORY/proxy-manifests-private.json"
+
+oc -n "$GATEWAY_NAMESPACE" rollout status deployment/oce-team-claw-oidc --timeout=3m
+
 printf 'https://%s/new\n' "$TEAM_CLAW_HOST"
 
 # Run locally for one recipient at a time; do not put passwords in chat or shared bundles.
+# New-realm path only: read the generated password for one recipient.
 jq -r --arg user 'alice' '.[$user]' "$TEAM_LOGIN_DIRECTORY/initial-passwords.json"
 ```
 
-Each person signs in with their username, replaces the temporary password and
-opens the Control UI. Through the existing operator route, assign each nominated
+For existing-realm accounts, keep the current password. Deliver the protected
+temporary password only to newly created users. Each person signs in with their
+realm username, completes any required password/profile changes, and opens the
+Control UI. Through the existing operator route, assign each nominated
 administrator's new human profile the `maintainer` role. Members retain `member`.
 Display names and avatars are personal; the assistant's name is separate.
 
@@ -208,6 +301,8 @@ session, and that a member cannot change Gateway settings. Confirm anonymous
 requests with forged identity headers still redirect to Keycloak. Then remove
 **this Agent's old shared-admin route and proxy**, which otherwise bypass the
 new member permissions. Save its rendered manifest privately for operator recovery.
+
+Skip this deletion for a new Agent that never had the old OAuth proxy.
 
 ```bash
 oc -n "$GATEWAY_NAMESPACE" delete route,service,deployment \
@@ -221,9 +316,15 @@ old proxy's unused ConfigMap, cookie Secret, ServiceAccount and NetworkPolicies
 only after confirming their ownership in this Agent namespace. Keep OCC's private
 machine route and its required NetworkPolicies.
 
+Complete the [OCC admin launcher procedure](native-admin.md) for this Agent
+as well. Keep this Keycloak Route and its member roles. The separate OCC launcher
+uses the machine identity for authorized OCC administrators; it does not replace
+individual teammate login. Repeat Keycloak preparation only after fetching the
+latest Configuration so existing admin approval and origins stay intact.
+
 ## Membership changes and limits
 
-Manage local users and membership in the dedicated Keycloak realm. Adding a
+Manage local users and this Agent's membership group in the selected Keycloak realm. Adding a
 member also requires adding its issuer-qualified subject to the Gateway allowlist
 and identity scopes, then deploying that Configuration. Removing Gateway admission
 requires updating both sides. Reusing a username after deletion creates a new

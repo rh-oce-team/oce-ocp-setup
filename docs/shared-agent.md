@@ -201,10 +201,13 @@ are not configured by this recipe.
 A deployed revision can be healthy even when its model calls fail. An endpoint
 backed by vLLM was observed returning HTTP 400 during a real Codex turn:
 `Custom tools with a grammar format are not supported; only free-form text custom tools are accepted.`
-The same endpoint completed a tool-free streaming Responses request.
+The same endpoint completed tool-free Responses and streamed function-call
+requests. Those checks do not prove compatibility with Codex's complete tool
+schema.
 
-This is a provider/Codex tool-format compatibility failure, not evidence of
-failed OpenShift OAuth or missing OpenShell egress. Do not widen network access
-or disable sandbox security to fix it. Use a provider/model that supports the
-installed Codex tool schema, or resolve the compatibility before handing off
-the Agent. A custom base URL does not guarantee every model backend works.
+This identifies a tool-format mismatch in the integrated request, not evidence
+of failed OpenShift OAuth or missing OpenShell egress. A basic standalone Codex
+turn can still pass with the same model and Codex version. Compare the integrated
+app-server/tool settings before assigning the cause to OCE, OpenClaw, or the
+provider. Do not widen network access or disable sandbox security to fix it.
+Keep a working model configured until the integrated path passes a real turn.

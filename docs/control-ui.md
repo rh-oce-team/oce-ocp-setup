@@ -276,6 +276,15 @@ completed assistant response: an authenticated browser session or initialized
 WebSocket alone does not prove the selected Harness reached the model through the
 OpenShell route with the selected Harness.
 
+## Enable the OCC admin launcher
+
+Complete the required [OCC admin launcher procedure](native-admin.md) before
+handing off this Agent. The OAuth Route above provides direct browser access;
+it does not enable **Gateway administration → Open admin console** in OCC.
+That launcher needs its own HTTPS endpoint, global Helm settings, and this
+Agent's exact origin and machine-identity permissions. Enable the global feature
+once; repeat the endpoint and Configuration steps for each new Agent.
+
 ## Enable dashboard widgets
 
 After the Control UI works, follow [widget preview access](widgets.md) to expose

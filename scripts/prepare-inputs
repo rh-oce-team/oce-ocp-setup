@@ -61,6 +61,8 @@ for name in control-plane-postgres-egress control-plane-kube-api-egress; do
   fi
 done
 
+# Initial install keeps the launcher off until private routing and admin HTTPS are ready.
+# Complete docs/native-admin.md after Agent deployment; an OAuth Route alone is insufficient.
 yq -i '.images.controller = strenv(CONTROLLER_IMAGE) |
   .auth.baseUrl = "https://" + strenv(OCC_CONSOLE_HOST) |
   .bootstrap.adminEmail = strenv(OCC_ADMIN_EMAIL) |
@@ -99,3 +101,4 @@ yq -i '.spec.egress[0].to = (load(strenv(OCC_INPUT_DIRECTORY) + "/api-cidrs.json
 
 printf 'Prepared private Helm, Installation, bootstrap PVC, and egress policy inputs.\n'
 printf 'No cluster resources were changed.\n'
+printf 'The OCC admin launcher starts disabled; complete docs/native-admin.md after deploying the Agent.\n'

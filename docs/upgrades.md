@@ -13,6 +13,11 @@ other affected runtime dependencies can interrupt Agents. Runtime upgrades also
 redeploy every running Agent concurrently and can interrupt connections and turns.
 Preserve database and Agent state; this is not a zero-downtime workflow.
 
+Run the upgrade and resume commands with Bash 4.4 or later. On macOS, the
+system Bash 3.2 can fail during resume when every Agent already has a recorded
+deployment response. Select a current Bash in `PATH` before starting; keep the
+same source and evidence directory when resuming.
+
 ## 1. Build the selected candidate
 
 ```bash
@@ -85,6 +90,13 @@ that needs a custom runtime, qualify the replacement image before redeploying it
 If intentionally discarding that trial, delete its Agent through OCC and wait for
 cleanup before the upgrade. Preserve the remaining Agents' PVCs. Pause other operators' Helm changes through completion or
 recovery.
+
+If the existing installation predates October 13, 2026, read the selected
+release's [OpenShell credential-source breaking change](https://github.com/openclaw/openclaw-enterprise/blob/main/docs/guides/deploy/breaking-changes-archive.md#2026-10-13-openshell-openai-credential-sources-need-replacing)
+before cutover. Older `openai` sources can reference the former shared provider
+profile. They need replacement sources, exact Agent grants, and updated Agent
+bindings; an image upgrade alone does not repair those bindings. Preserve the
+existing model Secrets and Agent PVCs.
 
 Set your own protected OCC key:
 
