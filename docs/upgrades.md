@@ -297,12 +297,29 @@ Keep the live values, including the dashboard OIDC overlay; applying only the
 fresh-install values would discard that overlay. Agent PVCs and credentials stay
 in place, but connections can pause while the gateway restarts.
 
+This procedure selects OpenShell 0.1.5. Review its
+[upgrade notes](https://github.com/NVIDIA/OpenShell/releases/tag/v0.1.5):
+
+- Sandbox template Pod labels and annotations now require separate operator
+  allowlists. Merge the OCE label allowlist below. Allow any additional template
+  annotation keys only after reviewing their use; OpenShell's reserved identity
+  domains cannot be allowlisted.
+- Supervisor OCSF files change from `openshell-ocsf.*.log` to
+  `openshell-ocsf.*.jsonl`. Collect required old logs before replacement and update
+  any collector patterns. Old files are not migrated.
+
+Keep the current transport and authentication settings during this version
+upgrade. The GitHub App authority and HTTPS/mTLS cutover need their own reviewed
+Installation and Gateway changes.
+
 Download and verify the selected charts using the
 [OpenShell chart preparation](cluster.md#stage-openshell-separately), then run:
 
 ```bash
 # REQUIRED: a new private directory for this OpenShell upgrade.
-export OPENSHELL_UPGRADE_DIRECTORY="$OCC_INPUT_DIRECTORY/openshell-0.1.4-upgrade"
+export OPENSHELL_UPGRADE_DIRECTORY="$OCC_INPUT_DIRECTORY/openshell-0.1.5-upgrade"
+
+umask 077
 
 install -d -m 700 "$OPENSHELL_UPGRADE_DIRECTORY"
 
@@ -316,11 +333,31 @@ export OPENSHELL_IMAGE_PINS="$PWD/manifests/openshift/openshell-gateway-values.y
 
 yq -i '.gateway.image = load(strenv(OPENSHELL_IMAGE_PINS)).gateway.image |
   .sandboxRuntime.image = load(strenv(OPENSHELL_IMAGE_PINS)).sandboxRuntime.image |
-  .supervisor.image = load(strenv(OPENSHELL_IMAGE_PINS)).supervisor.image' \
+  .supervisor.image = load(strenv(OPENSHELL_IMAGE_PINS)).supervisor.image |
+  .gatewayConfig."openshell.drivers.kubernetes".allowed_pod_labels =
+    (((.gatewayConfig."openshell.drivers.kubernetes".allowed_pod_labels // []) +
+      load(strenv(OPENSHELL_IMAGE_PINS)).gatewayConfig."openshell.drivers.kubernetes".allowed_pod_labels) | unique)' \
   "$OPENSHELL_UPGRADE_DIRECTORY/values.yaml"
 
+helm template openshell-gateway \
+  "$OCC_INPUT_DIRECTORY/openshell-charts/helm-chart-0.1.5.tgz" \
+  --namespace openshell-system --is-upgrade \
+  --set agentSandbox.preflight.enabled=false \
+  -f "$OPENSHELL_UPGRADE_DIRECTORY/values.yaml" \
+  > "$OPENSHELL_UPGRADE_DIRECTORY/rendered.yaml"
+```
+
+The preflight override is for offline rendering only; keep the CRD preflight
+enabled for the actual upgrade. Inspect the private render before applying it. Preserve the StatefulSet name,
+ServiceAccount names, PVC claim template, and encryption/JWT Secret references.
+Keep the live claim's storage class and size; the new chart's
+`server.dataStorageClass` and `server.dataStorageSize` are not a way to change an
+existing claim template. Confirm that the OIDC overlay and network isolation
+remain present. An offline render cannot recover existing Secret contents.
+
+```bash
 helm upgrade openshell-gateway \
-  "$OCC_INPUT_DIRECTORY/openshell-charts/helm-chart-0.1.4.tgz" \
+  "$OCC_INPUT_DIRECTORY/openshell-charts/helm-chart-0.1.5.tgz" \
   --namespace openshell-system \
   -f "$OPENSHELL_UPGRADE_DIRECTORY/values.yaml" \
   --wait --timeout 7m
@@ -328,8 +365,12 @@ helm upgrade openshell-gateway \
 oc -n openshell-system rollout status statefulset/openshell-gateway --timeout=5m
 ```
 
-Existing Sandboxes retain their supervisor image until restarted or replaced.
-Deploy each intended Agent through OCC to create its new-version Sandbox; keep
-its existing Configuration and credential sources. Verify a model turn, tool
-credentials and the dashboard afterward. Share the refreshed protected gateway
+The Gateway rollout does not redeploy the Agent fleet. Existing Sandboxes retain
+their supervisor and sandbox runtime images until replaced. Compare the rendered
+0.1.5 workspace chart with the Installation's existing workspace resources; apply
+any required changes through OCE's
+[Installation-change procedure](https://github.com/openclaw/openclaw-enterprise/blob/main/docs/guides/deploy/production-installation-changes.md).
+Deploy one canary Agent through OCC, then each intended Agent after its model turn
+succeeds. Keep each Agent's existing Configuration, credential sources and PVCs.
+Verify a model turn, tool credentials and the dashboard afterward. Share the refreshed protected gateway
 values with maintainers separately from Secrets.

@@ -55,6 +55,10 @@ and image digests for every release.
 
 The recipes were exercised on OpenShift 4.22.17, Kubernetes 1.35.8 and amd64,
 with OpenShell 0.1.4, Crunchy 5.8.9 and single-instance PostgreSQL without backups.
+
+The recipes now select OpenShell 0.1.5; the cluster upgrade and model-turn
+verification are pending. Follow [Upgrade OpenShell](docs/upgrades.md#upgrade-openshell-separately)
+for the version change.
 This is a development setup, not a production qualification. Dashboard OIDC is
 separate from OCC/Agent login. Existing OpenShell private-network authentication
 remains development-only and must retain its network isolation.
