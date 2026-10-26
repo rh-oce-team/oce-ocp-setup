@@ -85,9 +85,8 @@ git -C "$source_checkout" merge-base --is-ancestor "$oce" origin/main 2>/dev/nul
   exit 1
 }
 if [[ -n "$openclaw" ]]; then
-  dockerfile=$(git -C "$source_checkout" show "$oce:deploy/runtime/Dockerfile") ||
-    { echo "OCE revision $oce has no deploy/runtime/Dockerfile." >&2; exit 1; }
-  pin=$(sed -n 's/^ARG OPENCLAW_COMMIT=//p' <<<"$dockerfile")
+  source_metadata=$("$repository/scripts/resolve-runtime-source" "$source_checkout" "$oce")
+  pin=$(jq -er .openclawCommit <<<"$source_metadata")
   [[ "$pin" == "$openclaw" ]] || {
     echo "The runtime image carries OpenClaw $openclaw, but OCE $oce pins ${pin:-nothing}." >&2
     echo 'Select matching tags with PUBLISHED_CONTROLLER_TAG and PUBLISHED_RUNTIME_TAG.' >&2

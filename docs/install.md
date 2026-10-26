@@ -45,26 +45,25 @@ git -C "$OCE_CHECKOUT" fetch origin main
 
 export OCC_REV="$(git -C "$OCE_CHECKOUT" rev-parse origin/main)"
 
-export OPENCLAW_COMMIT="$(git -C "$OCE_CHECKOUT" show "$OCC_REV:deploy/runtime/Dockerfile" |
-  sed -n 's/^ARG OPENCLAW_COMMIT=//p')"
+scripts/resolve-runtime-source "$OCE_CHECKOUT" "$OCC_REV" \
+  > "$OCC_INPUT_DIRECTORY/runtime-source.json" || exit 1
 
-export OPENCLAW_SOURCE_SHA256="$(git -C "$OCE_CHECKOUT" show "$OCC_REV:deploy/runtime/Dockerfile" |
-  awk '/openclaw-source.tar.gz.*sha256sum/ {gsub(/\047/, "", $2); print $2}')"
+export OPENCLAW_COMMIT="$(jq -er .openclawCommit "$OCC_INPUT_DIRECTORY/runtime-source.json")"
 
-[[ "$OPENCLAW_COMMIT" =~ ^[a-f0-9]{40}$ ]]
+export OPENCLAW_SOURCE_SHA256="$(jq -er .sourceArchiveSha256 "$OCC_INPUT_DIRECTORY/runtime-source.json")"
 
-[[ "$OPENCLAW_SOURCE_SHA256" =~ ^[a-f0-9]{64}$ ]]
+export OPENCLAW_BUILD_TIMESTAMP="$(jq -er .openclawBuildTimestamp "$OCC_INPUT_DIRECTORY/runtime-source.json")"
 
 # Use a dedicated clean OCE checkout; this freezes the chart and CLI with the images.
 git -C "$OCE_CHECKOUT" switch --detach "$OCC_REV"
 
 export OCC_RUNTIME_TAG="$OCC_REV-$OPENCLAW_COMMIT"
-
-jq -n --arg oce "$OCC_REV" --arg openclaw "$OPENCLAW_COMMIT" \
-  --arg archive "$OPENCLAW_SOURCE_SHA256" \
-  '{oceCommit:$oce, openclawCommit:$openclaw, sourceArchiveSha256:$archive}' \
-  > "$OCC_INPUT_DIRECTORY/runtime-source.json"
 ```
+
+The resolver reads `deploy/runtime/openclaw-source.json` from the selected Git
+revision, including its commit, archive checksum, and fixed build timestamp. For
+older OCE revisions without that manifest, it reads the legacy Dockerfile pins.
+A present but invalid manifest is an error; working-tree edits are not build inputs.
 
 Prepare the BuildConfigs and source archives.
 
@@ -77,7 +76,10 @@ oc create namespace openclaw-system --dry-run=client -o yaml |
   oc apply -f -
 
 oc process -f manifests/openshift/image-builds-template.yaml \
-  -p "REV=$OCC_REV" -p "RUNTIME_TAG=$OCC_RUNTIME_TAG" |
+  -p "REV=$OCC_REV" -p "RUNTIME_TAG=$OCC_RUNTIME_TAG" \
+  -p "OPENCLAW_COMMIT=$OPENCLAW_COMMIT" \
+  -p "OPENCLAW_SOURCE_SHA256=$OPENCLAW_SOURCE_SHA256" \
+  -p "OPENCLAW_BUILD_TIMESTAMP=$OPENCLAW_BUILD_TIMESTAMP" |
   oc -n openclaw-system apply -f -
 
 git -C "$OCE_CHECKOUT" archive --format=tar -o "$OCC_INPUT_DIRECTORY/source.tar" "$OCC_REV"
@@ -111,7 +113,7 @@ build still requires enrollment, workspace, and model verification after deploym
 
 ## Use the published images instead of building
 
-To skip the build, deploy the images published at `quay.io/aipcc/base-images/agentic/oce-controller` and `oce-runtime`. `scripts/resolve-images` resolves each tag (`latest` unless you set `PUBLISHED_CONTROLLER_TAG` or `PUBLISHED_RUNTIME_TAG`) to a `linux/amd64` digest through the registry's anonymous read API and checks every digest it follows. The controller image records its OCE commit and the runtime image its OpenClaw commit. The helper requires the OCE commit to be on `origin/main` and the runtime's OpenClaw commit to be the pin in that commit's `deploy/runtime/Dockerfile`. It changes nothing in the cluster or in the OCE checkout.
+To skip the build, deploy the images published at `quay.io/aipcc/base-images/agentic/oce-controller` and `oce-runtime`. `scripts/resolve-images` resolves each tag (`latest` unless you set `PUBLISHED_CONTROLLER_TAG` or `PUBLISHED_RUNTIME_TAG`) to a `linux/amd64` digest through the registry's anonymous read API and checks every digest it follows. The controller image records its OCE commit and the runtime image its OpenClaw commit. The helper requires the OCE commit to be on `origin/main` and the runtime's OpenClaw commit to be the pin in that commit's runtime source manifest (or legacy Dockerfile). It changes nothing in the cluster or in the OCE checkout.
 
 **Resolve and freeze the published images.**
 

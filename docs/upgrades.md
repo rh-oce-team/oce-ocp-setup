@@ -48,6 +48,11 @@ test -z "$(git -C "$OCE_CHECKOUT" status --porcelain)"
 export OCC_REV="$(git -C "$OCE_CHECKOUT" rev-parse HEAD)"
 ```
 
+The wrapper resolves runtime source metadata from the selected revision's
+`deploy/runtime/openclaw-source.json`, or its legacy Dockerfile when the manifest
+is absent. It records the OpenClaw commit, archive checksum, and build timestamp
+in the private `runtime-source.json` and passes all three to the runtime build.
+
 The wrapper honors `OCC_REV`. Setting only `OCE_CHECKOUT` still selects upstream
 main by default, which would omit unmerged PR changes.
 
