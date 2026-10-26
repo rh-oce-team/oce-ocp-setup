@@ -76,7 +76,10 @@ export OCE_CHECKOUT='/absolute/path/to/installed-oce-checkout'
 # REQUIRED: OpenClaw repository containing the installed runtime's pinned commit.
 export OPENCLAW_CHECKOUT='/absolute/path/to/openclaw'
 
-export OPENCLAW_COMMIT="$(sed -n 's/^ARG OPENCLAW_COMMIT=//p' "$OCE_CHECKOUT/deploy/runtime/Dockerfile")"
+installed_source=$(scripts/resolve-runtime-source "$OCE_CHECKOUT" \
+  "$(git -C "$OCE_CHECKOUT" rev-parse HEAD)") || exit 1
+
+export OPENCLAW_COMMIT="$(jq -er .openclawCommit <<<"$installed_source")"
 
 git -C "$OPENCLAW_CHECKOUT" show \
   "$OPENCLAW_COMMIT:extensions/openai/openclaw.plugin.json" |
