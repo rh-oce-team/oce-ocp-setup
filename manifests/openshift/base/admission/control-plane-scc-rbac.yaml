@@ -29,3 +29,6 @@ subjects:
   - kind: ServiceAccount
     name: openclaw-enterprise-initialization
     namespace: openclaw-system
+  - kind: ServiceAccount
+    name: openclaw-enterprise-slack-proxy
+    namespace: openclaw-system

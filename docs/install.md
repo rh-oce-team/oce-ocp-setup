@@ -282,6 +282,13 @@ expect the default OpenShift DNS and ingress deployments; verify them before
 applying. The `null` DNS label removes the chart's `k8s-app=kube-dns` default
 when merging Helm values.
 
+It also enables the chart-managed Slack proxy for OCC directory lookup and
+configures the dedicated Gateway's matching proxy endpoint and Pod selector.
+The control-plane SCC binding admits the proxy's exact ServiceAccount. Slack
+tokens remain Agent Namespace Secrets; these installation inputs contain none.
+For an existing installation, use [Slack setup](slack.md) instead of rerunning
+`prepare-inputs`, which resets initial routing and admin-launcher settings.
+
 No additional YAML values need filling in for this profile. If your cluster uses
 a different storage class, update `bootstrap-pvc.yaml` at
 `spec.storageClassName` and `installation.yaml` at

@@ -94,6 +94,7 @@ yq -i '.occ.cluster = strenv(OCC_CLUSTER_NAME) |
   .drivers.compute.configuration.runtime.nodeSelector = {"oce-role":"agent"} |
   .drivers.compute.configuration.runtime.gatewayNodeSelector = {"oce-role":"control"}' \
   "$OCC_INPUT_DIRECTORY/installation.yaml"
+"$repository/scripts/prepare-slack"
 yq -i '.spec.storageClassName = "gp3-csi"' "$OCC_INPUT_DIRECTORY/bootstrap-pvc.yaml"
 yq -i '.spec.egress[0].to = (load(strenv(OCC_INPUT_DIRECTORY) + "/api-cidrs.json") | map({"ipBlock":{"cidr":.}})) |
   .spec.egress[0].ports = load(strenv(OCC_INPUT_DIRECTORY) + "/api-ports.json")' \

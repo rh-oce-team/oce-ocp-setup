@@ -29,6 +29,7 @@ scripts/build-occ
 - **Experimental team identities:** [Keycloak member login](docs/team-login.md), requiring [OCE PR #3049](https://github.com/openclaw/openclaw-enterprise/pull/3049), which is open and not yet merged.
 - **OpenShell policy demo:** [deny, approve and retry](docs/policy-demo.md), available on OCE main after PR #2599 merged.
 - **GitHub CLI:** [attach a PAT to one Agent](docs/github-cli.md).
+- **Slack:** [enable the installation proxies and connect an Agent](docs/slack.md).
 - **Personal Keycloak login:** [reuse an existing account for another Agent](docs/agent-keycloak-login.md).
 - **Scoped owners:** [owner access](docs/owner-access.md); cluster-admin access remains an explicit alternative.
 - **Dashboard:** [Keycloak and dashboard recipe](docs/dashboard.md).
