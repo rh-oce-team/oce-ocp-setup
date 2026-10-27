@@ -1,5 +1,8 @@
 # Enable MCP Apps and dashboard widgets
 
+For a team-facing explanation of access, exposed ports, OpenShell policy, and
+security tradeoffs, read [How the team accesses dashboard widgets](widget-access.md).
+
 Run this optional recipe after an Agent's [Control UI](control-ui.md) works.
 It uses OCE's supported widget sandbox settings and a separate OpenShift edge
 Route to the Gateway's isolated renderer port. Browser traffic uses HTTPS;

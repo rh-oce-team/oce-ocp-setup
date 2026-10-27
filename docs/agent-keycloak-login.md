@@ -89,3 +89,7 @@ shared-admin route/proxy using the team-login guide's ownership checks. For a
 hostname-preserving migration, stage the proxy and Gateway first, then update the
 existing Route's Service target to the new proxy; do not create two Routes with
 the same hostname.
+
+Regenerate the [private Claw links directory](claw-links.md) and share it with
+the owner so they can find their human login again. Keep actual names and URLs
+out of this public repository.

@@ -1,5 +1,8 @@
 # Deploy OCE on OpenShift: the operator recipe
 
+For existing Claws, [generate a private Claw links directory](claw-links.md)
+to share human login links with your team.
+
 Run the six steps below from the repository root. Each linked page contains
 command boxes to run in order; finish that page before continuing here.
 Use **dedicated Codex through OpenShell**. This repository owns deployment inputs only; OCE application code stays in its
