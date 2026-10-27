@@ -324,6 +324,9 @@ uses the machine identity for authorized OCC administrators; it does not replace
 individual teammate login. Repeat Keycloak preparation only after fetching the
 latest Configuration so existing admin approval and origins stay intact.
 
+Regenerate the [private Claw links directory](claw-links.md) and share it with
+members. Keep actual names and URLs out of this public repository.
+
 ## Membership changes and limits
 
 Manage local users and this Agent's membership group in the selected Keycloak realm. Adding a

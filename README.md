@@ -7,6 +7,9 @@ Keycloak-protected OpenShell dashboard.
 
 ## Start here
 
+Looking for your Claw? [Generate a private Claw links directory](docs/claw-links.md)
+to share with your team.
+
 Use a separate OCE checkout. Keep it on the release you intend to build or deploy;
 fetching main selects a candidate, not permission to upgrade a running cluster.
 
