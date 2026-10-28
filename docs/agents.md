@@ -133,7 +133,7 @@ rm -f "$AGENT_INPUT_DIRECTORY/model-secret.json"
 test -n "$SECRET_REF" && test "$SECRET_REF" != null
 
 jq -n --argjson ref "$SECRET_REF" --arg name "$AGENT_NAME-openai" \
-  '{name:$name, type:"openai", secrets:{api_key:$ref}}' \
+  '{name:$name, type:"openai", config:{base_url:"https://api.openai.com/v1"}, secrets:{api_key:$ref}}' \
   > "$AGENT_INPUT_DIRECTORY/credential-source.json"
 
 export SOURCE_ID="$(bin/occ credential-source create \
@@ -141,6 +141,12 @@ export SOURCE_ID="$(bin/occ credential-source create \
 
 bin/occ credential-source get "$SOURCE_ID"
 ```
+
+Keep the endpoint explicit for the current API-key Codex runtime. OCE then
+configures its OpenAI-compatible native provider, avoiding the explicit Standard
+Access failure described in [team login](team-login.md#3-apply-human-scopes-and-preserve-machine-access).
+This still uses the OpenAI API key at the OpenAI URL. For another provider, use
+that provider's actual endpoint and its authorized credential instead.
 
 ## 4. Create the Configuration and Agent
 

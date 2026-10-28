@@ -44,6 +44,8 @@ bin/occ configuration get "$CONFIGURATION_ID" -o json \
 export CONFIGURATION_FILE="$TEAM_LOGIN_DIRECTORY/current-configuration.json"
 
 scripts/prepare-team-login
+
+scripts/configure-team-login-scopes
 ```
 
 The helper refuses existing clients, groups or saved settings. After a partial
@@ -54,12 +56,13 @@ Gateway admission also checks the exact issuer-qualified subject.
 ## 2. Deploy an owner-only Gateway
 
 Only the nominated owner and OCC machine identity are admitted. Both need full
-Gateway access, so set the default role to `maintainer`. This preserves machine
-access during rollout. For shared Agents with restricted members, use the
-member/maintainer procedure in the team-login guide instead.
+Gateway access through their explicit identity grants. Omit `gateway.roles` for
+the current trusted-team Codex workaround described in
+[the team-login guide](team-login.md#3-apply-human-scopes-and-preserve-machine-access).
+Personal profiles, names, avatars and session ownership remain separate.
 
 ```bash
-jq '.values.gateway.roles.default = "maintainer"' \
+jq 'del(.values.gateway.roles)' \
   "$TEAM_LOGIN_DIRECTORY/configuration-keycloak.json" \
   > "$TEAM_LOGIN_DIRECTORY/configuration-owner.json"
 

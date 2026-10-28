@@ -145,6 +145,15 @@ profile requirements and session policy; users may need to complete their
 profile at login. The eight-hour session defaults below
 apply to a new realm created by this recipe, not to an existing realm.
 
+For an explicitly requested existing-account reset, resolve the exact username
+to its existing immutable user ID. Use the Keycloak administrator API
+`PUT /admin/realms/{realm}/users/{id}/reset-password` with a password read from a
+protected file and `temporary: true`, and verify that the user requires
+`UPDATE_PASSWORD`. Preserve its other required actions, attributes and group
+memberships. Do not delete and recreate the account: that changes its subject
+and breaks the existing Gateway identity grant. The creation helpers deliberately
+do not perform these resets.
+
 Both paths use the operator-created Keycloak administrator Secret through `oc`.
 After a partial failure, inspect the saved inputs and realm before continuing;
 do not recreate clients or accounts to replace credentials.
@@ -159,6 +168,8 @@ export CONFIGURATION_FILE="$TEAM_LOGIN_DIRECTORY/current-configuration.json"
 
 scripts/prepare-team-login
 
+scripts/configure-team-login-scopes
+
 oc apply --dry-run=server \
   -f "$TEAM_LOGIN_DIRECTORY/proxy-manifests-private.json"
 ```
@@ -171,6 +182,16 @@ appends to the client address chain. Do not strip `X-Forwarded-For` between this
 router and the Gateway: OpenClaw requires attributable proxy traffic. The HTTPS
 Route uses the cluster certificate; the last hop from router to proxy
 is HTTP, as in the existing OpenShift test recipes.
+
+The scope helper updates the existing client's signed `oce_gateway_scopes` claim
+from each person's explicit Gateway grant. Its client-specific user attribute is
+administrator-editable only; shared accounts retain their other Agent attributes.
+The proxy replaces incoming `X-Openclaw-Scopes` on HTTP and WebSocket requests
+with that claim. Never use one shared administrator cap for all teammates.
+The generated Deployment includes a configuration checksum so applying changed
+proxy settings rolls its Pods.
+After adding or changing grants, rerun the helper. Existing proxy sessions may
+need a fresh sign-in to acquire the claim; passwords and client secrets stay intact.
 
 Its NetworkPolicy permits the exact Gateway, DNS, and router HTTPS endpoints.
 DNS allows Service port 53 and OpenShift DNS Pod port 5353 after translation.
@@ -210,59 +231,20 @@ For another Agent using these same accounts, follow
 
 The prepared Configuration keeps existing model and workspace settings. Members
 receive `operator.read` and `operator.write`; nominated administrators also
-receive `operator.admin`. Preparation preserves existing device-approval scopes,
-including admin approval required by the OCC launcher. Each person's explicit
-identity scopes and role still restrict access. The default member role permits
-collaboration in other people's sessions, subject to OpenClaw's session-sharing
-rules. Gateway/model administration stays restricted.
+receive `operator.admin`. Device auto-approval excludes `operator.admin`; the
+machine identity and nominated administrators receive it through their exact
+identity grants. Each person's signed scope header caps HTTP and WebSocket access.
 
-**Define roles before assigning them.** First deploy the role definitions with
-`maintainer` as the temporary default. This preserves the existing operator
-access while the machine profile gets its explicit role. Keep the new public
-proxy unapplied until the final member-default deployment succeeds.
+Preparation does not add or remove `gateway.roles`. For this trusted-team Codex
+recipe, explicitly omit named roles before deployment:
 
 ```bash
-jq --slurpfile login "$TEAM_LOGIN_DIRECTORY/configuration-keycloak.json" \
-  '{values:.values} | .values.gateway.roles=$login[0].values.gateway.roles | .values.gateway.roles.default="maintainer"' \
-  "$TEAM_LOGIN_DIRECTORY/current-configuration.json" \
-  > "$TEAM_LOGIN_DIRECTORY/configuration-role-definitions.json"
+jq 'del(.values.gateway.roles)' \
+  "$TEAM_LOGIN_DIRECTORY/configuration-keycloak.json" \
+  > "$TEAM_LOGIN_DIRECTORY/configuration-keycloak-no-roles.json"
 
 bin/occ configuration update "$CONFIGURATION_ID" \
-  --file "$TEAM_LOGIN_DIRECTORY/configuration-role-definitions.json"
-
-bin/occ agent deploy "$AGENT_ID" -o json \
-  > "$TEAM_LOGIN_DIRECTORY/role-definitions-deployment.json"
-
-export ROLE_DEPLOYMENT_ID="$(jq -er .id "$TEAM_LOGIN_DIRECTORY/role-definitions-deployment.json")"
-
-bin/occ agent deployment-status "$AGENT_ID" "$ROLE_DEPLOYMENT_ID"
-```
-
-Wait for `succeeded`. Then assign only the exact `occ-workspace-files` machine
-profile the `maintainer` role through the Gateway's Pod-local operator RPC:
-
-```bash
-export GATEWAY_POD="$(oc -n "$GATEWAY_NAMESPACE" get pods \
-  -l "openclaw.dev/agent=$AGENT_ID,openclaw.dev/workload-role=gateway" \
-  -o jsonpath='{.items[0].metadata.name}')"
-
-oc -n "$GATEWAY_NAMESPACE" exec "$GATEWAY_POD" -c gateway -- \
-  node /app/openclaw.mjs gateway call users.list --json \
-  > "$TEAM_LOGIN_DIRECTORY/profiles-before.json"
-
-export MACHINE_PROFILE_ID="$(jq -er '.profiles | map(select(.displayName=="occ-workspace-files")) | if length==1 then .[0].id else error("Expected one machine profile") end' \
-  "$TEAM_LOGIN_DIRECTORY/profiles-before.json")"
-
-oc -n "$GATEWAY_NAMESPACE" exec "$GATEWAY_POD" -c gateway -- \
-  node /app/openclaw.mjs gateway call users.setRole --json \
-  --params "$(jq -nc --arg id "$MACHINE_PROFILE_ID" '{profileId:$id,role:"maintainer"}')"
-```
-
-Apply the prepared human scopes and `member` default:
-
-```bash
-bin/occ configuration update "$CONFIGURATION_ID" \
-  --file "$TEAM_LOGIN_DIRECTORY/configuration-keycloak.json"
+  --file "$TEAM_LOGIN_DIRECTORY/configuration-keycloak-no-roles.json"
 
 bin/occ agent deploy "$AGENT_ID" -o json \
   > "$TEAM_LOGIN_DIRECTORY/deployment-response.json"
@@ -274,6 +256,35 @@ bin/occ agent deployment-status "$AGENT_ID" "$DEPLOYMENT_ID"
 
 Require deployment status `succeeded`. Existing PVCs, profiles and sessions are
 retained. The rollout restarts this Agent's Gateway and harness.
+
+This is a temporary compatibility workaround for OpenClaw pin `a3b12ef6`, which
+includes [Access-program role enforcement](https://github.com/openclaw/openclaw/pull/184930).
+Existing named roles without Daybreak grants now require an owned inference
+route that OCE's remote Codex connection does not provide. Administrator scopes
+do not bypass this check. Removing roles retains personal identities, names,
+avatars and session ownership, but removes the roles' restrictions, including
+per-user model and Access-program limits. Use this only for trusted teammates
+sharing the Agent's tools, credentials and workspace; separate sessions do not
+provide isolation. Keep the previous Configuration privately for later restoration.
+
+A separate API-key compatibility failure can occur when the UI sends explicit
+Standard Access while Codex's Cyber feature is disabled. Clearing a stored
+`cyberAccessProgram: "standard"` through supported `sessions.patch`
+(`cyberAccessProgram: null`) restores native inheritance for that session. Do not
+delete its profile or history. Adding `params.accessPrograms: {}` is not a
+verified Codex workaround at this pin: authored provider parameters can select
+the core OpenClaw transport instead. Qualify fresh human model turns, not only
+Pod readiness or the startup model probe.
+
+For API-key Codex, an explicit Credential Source `config.base_url` selects OCE's
+OpenAI-compatible native provider. The verified OpenAI setup uses
+`https://api.openai.com/v1` with the same OpenAI key; it does not require an ENMAAS
+key or enable native Cyber features. See [model credential creation](agents.md#3-register-this-agents-openai-credential).
+An existing source's endpoint is fixed: create an explicit-endpoint source
+referencing the same Secret, grant the same Agent principal its exact source
+access, and update the Agent's `harnessAuth` and attached model source before
+deployment. Retain the old source for rollback. Preserve any additional tool or
+repository sources and keep custom endpoints unchanged.
 
 ## 4. Complete first login and close the old route
 
@@ -294,15 +305,15 @@ jq -r --arg user 'alice' '.[$user]' "$TEAM_LOGIN_DIRECTORY/initial-passwords.jso
 For existing-realm accounts, keep the current password. Deliver the protected
 temporary password only to newly created users. Each person signs in with their
 realm username, completes any required password/profile changes, and opens the
-Control UI. Through the existing operator route, assign each nominated
-administrator's new human profile the `maintainer` role. Members retain `member`.
-Display names and avatars are personal; the assistant's name is separate.
+Control UI. Named-role assignment is not required for this workaround; nominated
+administrators already have explicit identity grants. Display names and avatars
+are personal; the assistant's name is separate.
 
 Verify two human logins produce different profiles, can participate in a shared
 session, and that a member cannot change Gateway settings. Confirm anonymous
 requests with forged identity headers still redirect to Keycloak. Then remove
 **this Agent's old shared-admin route and proxy**, which otherwise bypass the
-new member permissions. Save its rendered manifest privately for operator recovery.
+new identity grants. Save its rendered manifest privately for operator recovery.
 
 Skip this deletion for a new Agent that never had the old OAuth proxy.
 
@@ -319,10 +330,10 @@ only after confirming their ownership in this Agent namespace. Keep OCC's privat
 machine route and its required NetworkPolicies.
 
 Complete the [OCC admin launcher procedure](native-admin.md) for this Agent
-as well. Keep this Keycloak Route and its member roles. The separate OCC launcher
-uses the machine identity for authorized OCC administrators; it does not replace
+as well. Keep this Keycloak Route and its per-person identity grants. The separate
+OCC launcher uses the machine identity for authorized OCC administrators; it does not replace
 individual teammate login. Repeat Keycloak preparation only after fetching the
-latest Configuration so existing admin approval and origins stay intact.
+latest Configuration so existing administrator identity grants and origins stay intact.
 
 Regenerate the [private Claw links directory](claw-links.md) and share it with
 members. Keep actual names and URLs out of this public repository.
