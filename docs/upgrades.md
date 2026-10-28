@@ -203,6 +203,20 @@ selected Harness reached the model.
 
 ## 2. Prepare the upgrade
 
+For Keycloak human ingress, update each Agent's proxy before the new controller
+requires `x-openclaw-scopes`. Keep the existing private login directory, cookie
+and client secrets. Save that Agent's serving Configuration at `CONFIGURATION_FILE`,
+then run `scripts/configure-team-login-scopes --configuration "$CONFIGURATION_FILE"`
+with its team-login environment. It copies existing per-person grants into a
+client-specific signed claim. Regenerate the proxy with `scripts/prepare-team-login`
+and apply its protected manifests, preserving any reviewed Gateway settings.
+The generated checksum rolls the proxy Pods; restart the Deployment explicitly
+if updating only its Secret. See
+[Keycloak login](team-login.md#2-prepare-realm-accounts-and-the-proxy) for the
+full environment and preparation steps. Do not replace per-person caps with a
+shared administrator header. A fresh Keycloak sign-in may be needed to refresh
+an existing proxy session. Machine-only OCC ingress needs no Keycloak change.
+
 Complete the selected OCE release's [upgrade checklist](https://github.com/openclaw/openclaw-enterprise/blob/main/docs/guides/deploy/upgrade-checklist.md)
 before continuing. Compare protected inputs with live Helm values and the mounted
 Installation Secret. Save a private baseline and back up PostgreSQL before

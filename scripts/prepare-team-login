@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Render protected proxy manifests and Gateway Configuration; apply nothing."""
 import base64
+import hashlib
 import json
 import os
 import pathlib
@@ -36,14 +37,18 @@ headers = [
         "name": "X-Occ-Identity",
         "preserveRequestValue": False,
         "values": [{"claimSource": {"claim": "user", "prefix": s["identityPrefix"]}}],
-    }
+    },
+    {
+        "name": "X-Openclaw-Scopes",
+        "preserveRequestValue": False,
+        "values": [{"claimSource": {"claim": "oce_gateway_scopes"}}],
+    },
 ]
 for h in [
     "Cookie",
     "Authorization",
     "X-Api-Key",
     "X-Occ-Session-Key",
-    "X-Openclaw-Scopes",
     "X-Real-IP",
     "Forwarded",
     "X-Occ-Role",
@@ -65,6 +70,7 @@ alpha = {
             "clientID": s.get("clientId", "team-claw-browser"),
             "clientSecretFile": "/config/client-secret",
             "scope": "openid",
+            "additionalClaims": ["oce_gateway_scopes"],
             "allowedGroups": [s.get("allowedGroup", "/team-claw-members")],
             "code_challenge_method": "S256",
             "oidcConfig": {
@@ -137,6 +143,9 @@ x["stringData"] = {
     "core.cfg": core,
     "client-secret": (r / "client-secret").read_text(),
 }
+config_checksum = hashlib.sha256(
+    json.dumps(x["stringData"], sort_keys=True).encode()
+).hexdigest()
 items.append(x)
 labels = {"app.kubernetes.io/name": name}
 secure = {
@@ -167,7 +176,10 @@ items.append(
             "replicas": 1,
             "selector": {"matchLabels": labels},
             "template": {
-                "metadata": {"labels": labels},
+                "metadata": {
+                    "labels": labels,
+                    "annotations": {"oce-ocp-setup/config-sha256": config_checksum},
+                },
                 "spec": {
                     "automountServiceAccountToken": False,
                     "securityContext": {
@@ -298,7 +310,17 @@ tp["allowUsers"] = ["occ-workspace-files", *s["identities"].values()]
 approval = tp.setdefault("deviceAutoApprove", {})
 approval["enabled"] = True
 approval["scopes"] = list(
-    dict.fromkeys([*approval.get("scopes", []), "operator.read", "operator.write"])
+    dict.fromkeys(
+        [
+            *(
+                scope
+                for scope in approval.get("scopes", [])
+                if scope != "operator.admin"
+            ),
+            "operator.read",
+            "operator.write",
+        ]
+    )
 )
 auth["identityScopes"] = {
     "occ-workspace-files": ["operator.admin"],
@@ -311,28 +333,6 @@ auth["identityScopes"] = {
 g["controlUi"]["allowedOrigins"] = list(
     dict.fromkeys([*g["controlUi"]["allowedOrigins"], ui])
 )
-g["roles"] = {
-    "default": "member",
-    "definitions": {
-        "member": {
-            "sessions": {"others": "write"},
-            "agents": ["main"],
-            "scopes": ["operator.read", "operator.write"],
-        },
-        "maintainer": {
-            "sessions": {"others": "write"},
-            "agents": ["main"],
-            "scopes": [
-                "operator.admin",
-                "operator.read",
-                "operator.write",
-                "operator.approvals",
-                "operator.questions",
-                "operator.pairing",
-            ],
-        },
-    },
-}
 save("configuration-keycloak.json", {"values": v})
 print(
     "Prepared protected proxy manifests and explicit Gateway identity grants for "
