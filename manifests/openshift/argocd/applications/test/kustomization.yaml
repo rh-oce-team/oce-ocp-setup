@@ -1,0 +1,11 @@
+# OpenShift test profile: one Application per Kustomize stage, installed in
+# the openshift-gitops namespace used by the OpenShift GitOps default instance.
+# Sources point at the checked-in test overlays; per-cluster values stay out
+# of this repository (control-plane, control-ui and control-ui-access are not
+# adopted).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: openshift-gitops
+resources:
+  - ../base
+  - database.yaml

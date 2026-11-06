@@ -1,0 +1,19 @@
+# OpenShift GitOps operator, applied once by hand to bootstrap Argo CD.
+# The operator creates the default ArgoCD instance in openshift-gitops.
+#
+# Verify the channel and current CSV before applying:
+#   oc -n openshift-marketplace get packagemanifest openshift-gitops-operator \
+#     -o jsonpath='{.status.channels[*].name}{"\n"}'
+# Pin startingCSV to the CSV current for the target cluster, as the other
+# operator manifests in this repository do.
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: openshift-gitops-operator
+  namespace: openshift-operators
+spec:
+  channel: stable
+  installPlanApproval: Automatic
+  name: openshift-gitops-operator
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace

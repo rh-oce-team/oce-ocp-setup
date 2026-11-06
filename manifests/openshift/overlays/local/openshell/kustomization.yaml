@@ -1,0 +1,6 @@
+# Local verification profile: the whole openshell stage is plain Kubernetes
+# resources (namespace, RuntimeClass, ClusterRole, network policies).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../../base/openshell

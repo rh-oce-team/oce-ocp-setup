@@ -104,3 +104,13 @@ Private stage directories use mode `0700`; their files use `0600`. Do not commit
 private patches or rendered credentials, or include them in logs or attachments.
 The helper does not generate or rotate credentials or provide a cleanup command.
 Follow the existing procedures for release teardown and retained data.
+
+## Manage the stages with Argo CD
+
+The [Argo CD app-of-apps layout](../manifests/openshift/argocd/README.md)
+wraps these stages in one Application per stage with sync waves matching the
+order above. Argo can own the operators, database, admission, openshell and
+routing stages; the Helm releases and the cluster-specific stages stay in
+their guides. The same README describes a local k3d verification that
+exercises the whole pull-mode flow with portable stage subsets
+(`manifests/openshift/overlays/local/`).

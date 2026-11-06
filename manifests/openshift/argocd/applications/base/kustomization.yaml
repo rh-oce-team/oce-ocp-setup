@@ -1,0 +1,9 @@
+# One Application per adopted stage that auto-syncs. The database Application
+# is test-profile only (manual sync); see ../test/database.yaml.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - operators.yaml
+  - admission.yaml
+  - openshell.yaml
+  - routing.yaml

@@ -1,0 +1,27 @@
+# Wave 2: OpenShell namespace, RuntimeClass, workspace ClusterRole and the
+# gateway ingress / controller egress policies. The gateway Helm release
+# itself stays in docs/cluster.md (post-renderer requirement).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: oce-openshell
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/rh-oce-team/oce-ocp-setup.git
+    targetRevision: main
+    path: manifests/openshift/overlays/test/openshell
+  destination:
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    retry:
+      limit: 5
+      backoff:
+        duration: 15s
+        factor: 2
+        maxDuration: 3m

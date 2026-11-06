@@ -1,0 +1,26 @@
+# Wave 0: operator namespaces and subscriptions (PostgreSQL, cert-manager).
+# Health gating relies on the OpenShift GitOps operator's bundled OLM checks.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: oce-operators
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/rh-oce-team/oce-ocp-setup.git
+    targetRevision: main
+    path: manifests/openshift/overlays/test/operators
+  destination:
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    retry:
+      limit: 5
+      backoff:
+        duration: 15s
+        factor: 2
+        maxDuration: 3m

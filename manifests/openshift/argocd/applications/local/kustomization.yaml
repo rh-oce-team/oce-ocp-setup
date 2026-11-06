@@ -1,0 +1,49 @@
+# Local pull-mode verification profile for a plain Kubernetes cluster (k3d).
+# Portable stage subsets only (see ../../overlays/local); the database stage
+# has no portable resources and is excluded. Applications run in the argocd
+# namespace and pull from the local git daemon documented in ../../README.md.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: argocd
+resources:
+  - ../base
+patches:
+  # Common: read from the local git daemon instead of GitHub, and track the
+  # served branch's HEAD (the bare verification clone).
+  - target:
+      kind: Application
+    patch: |-
+      - op: replace
+        path: /spec/source/repoURL
+        value: git://host.k3d.internal:9418/oce-ocp-setup.git
+      - op: replace
+        path: /spec/source/targetRevision
+        value: HEAD
+  - target:
+      kind: Application
+      name: oce-operators
+    patch: |-
+      - op: replace
+        path: /spec/source/path
+        value: manifests/openshift/overlays/local/operators
+  - target:
+      kind: Application
+      name: oce-admission
+    patch: |-
+      - op: replace
+        path: /spec/source/path
+        value: manifests/openshift/overlays/local/admission
+  - target:
+      kind: Application
+      name: oce-openshell
+    patch: |-
+      - op: replace
+        path: /spec/source/path
+        value: manifests/openshift/overlays/local/openshell
+  - target:
+      kind: Application
+      name: oce-routing
+    patch: |-
+      - op: replace
+        path: /spec/source/path
+        value: manifests/openshift/overlays/local/routing

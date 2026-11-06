@@ -1,0 +1,26 @@
+# Root Application (app of apps) for the OpenShift test cluster.
+# Apply once by hand after the OpenShift GitOps operator is running and
+# argocd/rbac.yaml is applied; Argo then owns everything below this root.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: oce-root
+  namespace: openshift-gitops
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/rh-oce-team/oce-ocp-setup.git
+    targetRevision: main
+    path: manifests/openshift/argocd/applications/test
+  destination:
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    retry:
+      limit: 5
+      backoff:
+        duration: 15s
+        factor: 2
+        maxDuration: 3m

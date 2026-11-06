@@ -1,0 +1,15 @@
+# Local verification profile: the routing stage minus the GatewayClass. Argo's
+# GatewayClass health check waits for the controller to report Accepted; on
+# OpenShift the Envoy Helm install (docs/routing.md) provides it, and that
+# release stays a runbook step rather than an Argo Application.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../../base/routing
+patches:
+  - patch: |-
+      $patch: delete
+      apiVersion: gateway.networking.k8s.io/v1
+      kind: GatewayClass
+      metadata:
+        name: eg

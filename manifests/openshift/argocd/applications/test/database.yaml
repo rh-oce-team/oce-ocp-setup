@@ -1,0 +1,24 @@
+# Wave 1: PostgreSQL cluster. Manual sync by design: PostgresCluster changes
+# are sensitive (see the database row in docs/kustomize.md) and stay under
+# operator review rather than auto-sync.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: oce-database
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/rh-oce-team/oce-ocp-setup.git
+    targetRevision: main
+    path: manifests/openshift/overlays/test/database
+  destination:
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    retry:
+      limit: 5
+      backoff:
+        duration: 15s
+        factor: 2
+        maxDuration: 3m
