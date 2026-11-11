@@ -17,7 +17,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/rh-oce-team/oce-ocp-setup.git
-    targetRevision: main
+    targetRevision: gitops-reshape
     path: gitops/clusters/stage/apps
   destination:
     server: https://kubernetes.default.svc
