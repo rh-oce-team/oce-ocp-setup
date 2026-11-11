@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# Pin the five stage overlays to a commit of the downstream OpenClaw Enterprise
+# fork. The stage list is fixed on purpose: an unrelated overlay under the stage
+# tree must not change where the generic bases come from.
+set -euo pipefail
+
+usage() {
+  echo "usage: scripts/pin-fork [--no-verify] <40-character commit SHA>" >&2
+}
+
+verify=true
+if [[ ${1:-} == "--no-verify" ]]; then
+  verify=false
+  shift
+fi
+if [[ $# -ne 1 ]]; then
+  usage
+  exit 2
+fi
+
+revision=$1
+if [[ ! $revision =~ ^[0-9a-f]{40}$ ]]; then
+  echo "pin-fork: expected a 40-character lowercase commit SHA, got: $revision" >&2
+  exit 2
+fi
+
+repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+overlay="$repo_root/manifests/openshift/overlays/stage"
+stages=(operators database admission openshell routing)
+files=()
+for stage in "${stages[@]}"; do
+  file="$overlay/$stage/kustomization.yaml"
+  if [[ ! -f $file ]]; then
+    echo "pin-fork: missing $file" >&2
+    exit 1
+  fi
+  files+=("$file")
+done
+
+pattern='github\.com/red-hat-data-services/openclaw-enterprise//[^?]+\?ref=[0-9a-f]{40}'
+for file in "${files[@]}"; do
+  if ! grep -Eq "$pattern" "$file"; then
+    echo "pin-fork: $file has no fork base reference; refusing to change any overlay" >&2
+    exit 1
+  fi
+done
+
+if $verify; then
+  if ! command -v curl >/dev/null 2>&1; then
+    echo "pin-fork: curl is required to verify the commit" >&2
+    exit 1
+  fi
+  url="https://api.github.com/repos/red-hat-data-services/openclaw-enterprise/commits/${revision}"
+  if ! curl --fail --silent --show-error --max-time 20 "$url" >/dev/null; then
+    echo "pin-fork: $revision is not a commit in the fork, or GitHub is unreachable" >&2
+    exit 1
+  fi
+fi
+
+for file in "${files[@]}"; do
+  sed -i -E \
+    "s#(github\.com/red-hat-data-services/openclaw-enterprise//[^?]+\?ref=)[0-9a-f]{40}#\1${revision}#" \
+    "$file"
+done
+
+printf 'Pinned %d stage overlays to %s\n' "${#files[@]}" "$revision"

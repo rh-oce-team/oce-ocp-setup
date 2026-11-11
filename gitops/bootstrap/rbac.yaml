@@ -3,8 +3,9 @@
 #
 # This is defense-in-depth, not the enforcement boundary: the operator grants
 # the default instance's controller cluster-admin independently of this
-# binding, and AppProject oce-stages is what actually restricts sources,
-# destinations and cluster-scoped kinds. Keep both.
+# binding, and AppProject oce-stages is what actually restricts Application
+# sources, destinations and cluster-scoped kinds. Kustomize remote bases are
+# fetched at render time and are outside that boundary. Keep both.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:

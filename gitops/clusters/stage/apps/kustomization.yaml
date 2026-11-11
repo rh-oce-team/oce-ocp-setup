@@ -1,5 +1,5 @@
-# One Application per platform stage Argo reconciles. Sync waves mirror the
-# apply order in docs/kustomize.md; prune stays off so removing a resource from
+# One Application per platform stage Argo reconciles. Sync waves follow the
+# stage order; prune stays off so removing a resource from
 # Git never deletes it from the cluster until an operator does so by hand.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization

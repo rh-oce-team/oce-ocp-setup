@@ -57,15 +57,6 @@ def render(path):
     return [doc for doc in yaml.safe_load_all(result.stdout) if doc]
 
 
-def object_key(document):
-    metadata = document.get("metadata", {})
-    return (
-        document.get("kind"),
-        metadata.get("namespace"),
-        metadata.get("name"),
-    )
-
-
 def health_checks():
     patch = yaml.safe_load(
         (REPOSITORY / "gitops/bootstrap/argocd-resource-health.patch.yaml").read_text()
@@ -454,68 +445,116 @@ class GitOpsTreeTests(unittest.TestCase):
         documents = render("gitops/bootstrap")
         self.assertNotIn("ArgoCD", {document.get("kind") for document in documents})
 
-    def test_stage_overlay_changes_only_the_environment_label_and_database_size(self):
+    def test_stage_overlays_pin_the_fork_base(self):
+        revisions = set()
         for stage in STAGES:
-            base = {
-                object_key(document): document
-                for document in render(f"manifests/openshift/base/{stage}")
-            }
-            overlay = {
-                object_key(document): document
-                for document in render(f"manifests/openshift/overlays/stage/{stage}")
-            }
-            self.assertEqual(set(base), set(overlay), stage)
-            for key, document in overlay.items():
-                labels = document["metadata"].get("labels", {})
-                labels.pop("oce-ocp-setup/environment", None)
-                if not labels:
-                    document["metadata"].pop("labels", None)
-                if stage == "database":
-                    document["spec"]["instances"][0]["dataVolumeClaimSpec"]["resources"][
-                        "requests"
-                    ]["storage"] = "5Gi"
-                self.assertEqual(base[key], document, f"{stage}/{key}")
-
-    def test_stage_database_overlay_renders_the_documented_10gi_volume(self):
-        def postgres_cluster(path):
-            return next(
-                document
-                for document in render(path)
-                if document.get("kind") == "PostgresCluster"
+            overlay = yaml.safe_load(
+                (
+                    REPOSITORY
+                    / "manifests/openshift/overlays/stage"
+                    / stage
+                    / "kustomization.yaml"
+                ).read_text()
             )
+            self.assertEqual(len(overlay["resources"]), 1, stage)
+            resource = overlay["resources"][0]
+            self.assertTrue(
+                resource.startswith(
+                    "github.com/red-hat-data-services/openclaw-enterprise//"
+                    f"deploy/rhoai/manifests/openshift/base/{stage}?ref="
+                ),
+                stage,
+            )
+            revision = resource.rsplit("?ref=", 1)[1]
+            self.assertRegex(revision, r"^[0-9a-f]{40}$", stage)
+            revisions.add(revision)
+        # All five stages must render from the same fork commit.
+        self.assertEqual(len(revisions), 1, revisions)
 
-        def storage(document):
-            return document["spec"]["instances"][0]["dataVolumeClaimSpec"][
-                "resources"
-            ]["requests"]["storage"]
-
-        base = postgres_cluster("manifests/openshift/base/database")
-        overlay = postgres_cluster("manifests/openshift/overlays/stage/database")
-        self.assertEqual(storage(base), "5Gi")
-        self.assertEqual(storage(overlay), "10Gi")
-
-    def test_stage_overlay_keeps_network_policy_selectors(self):
-        base = {
-            object_key(document): document
-            for document in render("manifests/openshift/base/openshell")
-            if document.get("kind") == "NetworkPolicy"
-        }
-        overlay = {
-            object_key(document): document
-            for document in render("manifests/openshift/overlays/stage/openshell")
-            if document.get("kind") == "NetworkPolicy"
-        }
-        self.assertEqual(set(base), set(overlay))
-        for key, document in base.items():
+    def test_stage_overlays_keep_the_environment_label(self):
+        for stage in STAGES:
+            overlay = yaml.safe_load(
+                (
+                    REPOSITORY
+                    / "manifests/openshift/overlays/stage"
+                    / stage
+                    / "kustomization.yaml"
+                ).read_text()
+            )
+            transformer = next(entry for entry in overlay["labels"] if "pairs" in entry)
+            self.assertFalse(transformer["includeSelectors"], stage)
+            self.assertFalse(transformer["includeTemplates"], stage)
             self.assertEqual(
-                document["spec"]["podSelector"],
-                overlay[key]["spec"]["podSelector"],
+                transformer["pairs"],
+                {"oce-ocp-setup/environment": "stage"},
+                stage,
             )
-            for field in ("ingress", "egress"):
-                if field in document["spec"]:
-                    self.assertEqual(
-                        document["spec"][field], overlay[key]["spec"][field]
-                    )
+
+    def test_stage_database_overlay_sets_the_placeholder_volume(self):
+        overlay = yaml.safe_load(
+            (
+                REPOSITORY
+                / "manifests/openshift/overlays/stage/database/kustomization.yaml"
+            ).read_text()
+        )
+        patch = next(
+            entry
+            for entry in overlay["patches"]
+            if entry.get("target", {}).get("kind") == "PostgresCluster"
+        )
+        self.assertIn("value: 10Gi", patch["patch"])
+
+
+class PinForkTests(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        (self.root / "scripts").mkdir()
+        shutil.copy2(REPOSITORY / "scripts/pin-fork", self.root / "scripts/pin-fork")
+        shutil.copytree(
+            REPOSITORY / "manifests/openshift/overlays/stage",
+            self.root / "manifests/openshift/overlays/stage",
+        )
+        self.overlay = self.root / "manifests/openshift/overlays/stage"
+        self.script = self.root / "scripts/pin-fork"
+
+    def run_script(self, *args):
+        return subprocess.run(
+            ["bash", str(self.script), *args], capture_output=True, text=True
+        )
+
+    def overlay_text(self, stage):
+        return (self.overlay / stage / "kustomization.yaml").read_text()
+
+    def test_rejects_an_invalid_revision(self):
+        result = self.run_script("main")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("40-character", result.stderr)
+
+    def test_pins_all_five_overlays(self):
+        revision = "1" * 40
+        result = self.run_script("--no-verify", revision)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        for stage in STAGES:
+            self.assertIn(f"?ref={revision}", self.overlay_text(stage), stage)
+
+    def test_refuses_to_change_any_overlay_when_one_has_no_fork_base(self):
+        before = {stage: self.overlay_text(stage) for stage in STAGES}
+        (self.overlay / "routing" / "kustomization.yaml").write_text(
+            "resources:\n  - ../../local/routing\n"
+        )
+        result = self.run_script("--no-verify", "1" * 40)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("no fork base reference", result.stderr)
+        for stage in STAGES[:-1]:
+            self.assertEqual(self.overlay_text(stage), before[stage], stage)
+
+    def test_rejects_an_incomplete_stage_set(self):
+        shutil.rmtree(self.overlay / "openshell")
+        result = self.run_script("--no-verify", "1" * 40)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("missing", result.stderr)
 
 
 @unittest.skipUnless(HAVE_YAML, "PyYAML is required")

@@ -1,6 +1,0 @@
-presets:
-  includeDefaults: true
-  files:
-  - chief-of-staff.json
-  - question-and-answer.json
-  - software-eng-team.json

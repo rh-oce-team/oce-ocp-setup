@@ -134,17 +134,19 @@ run apply -f "$root_application"
 if ! $dry_run; then
   cat <<'EOF'
 
-Argo now creates the stage Applications wave by wave. Everything else stays in
-the runbooks, in this order:
+Argo now creates the stage Applications wave by wave from the pinned fork
+revision. Everything else stays in the fork's deployment guide,
+https://github.com/red-hat-data-services/openclaw-enterprise/blob/main/deploy/rhoai/README.md,
+in this order:
 
-  1. Create the four system Secrets and run the SQL bootstrap (docs/install.md).
+  1. Create the four system Secrets and run the SQL bootstrap.
      Argo never owns Secrets.
-  2. Install the OpenShell gateway and Envoy Gateway Helm releases. Their
-     post-renderers and OLM installs stay manual (docs/cluster.md, docs/routing.md).
-  3. Upgrade the oce Helm release with OCE's own helpers (docs/upgrades.md).
+  2. Install the OpenShell gateway and Envoy Gateway Helm releases.
+     Their post-renderers and OLM installs stay manual.
+  3. Upgrade the oce Helm release with OCE's own helpers.
      Do not add it to GitOps.
-  4. Apply control-plane, control-ui and control-ui-access with
-     scripts/prepare-kustomize (docs/kustomize.md).
+  4. Apply control-plane, control-ui and control-ui-access with the fork's
+     prepare-kustomize helper.
 
 Check progress with:
   oc -n openshift-gitops get applications

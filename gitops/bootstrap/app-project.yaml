@@ -1,6 +1,10 @@
 # Enforcement boundary for the five stage Applications. The root Application
 # stays in project default because it creates the child Applications in
 # openshift-gitops, which is not a stage namespace.
+#
+# sourceRepos covers Application sources only. The stage overlays fetch their
+# generic bases as Kustomize remote bases pinned by commit; those are outside
+# this boundary and are reviewed in the overlay diff.
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
