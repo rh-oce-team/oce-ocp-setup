@@ -16,7 +16,10 @@ metadata:
   name: openshift-gitops-operator
   namespace: openshift-operators
 spec:
-  channel: stable
+  # The Red Hat package publishes gitops-X.Y channels, with "latest" as the
+  # default. A "stable" channel does not exist and leaves the Subscription with
+  # ResolutionFailed, so the ArgoCD resource is never created.
+  channel: latest
   installPlanApproval: Automatic
   name: openshift-gitops-operator
   source: redhat-operators
