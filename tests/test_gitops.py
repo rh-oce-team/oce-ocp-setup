@@ -255,6 +255,12 @@ class BootstrapScriptTests(unittest.TestCase):
         self.assertIn("gitops/clusters/stage/root-adoption.yaml", result.stdout)
         self.assertNotIn("gitops/clusters/stage/root.yaml", result.stdout)
 
+    def test_no_root_dry_run_skips_the_root(self):
+        result = self.run_script("--env", "stage", "--no-root", "--dry-run")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("root.yaml", result.stdout)
+        self.assertNotIn("root-adoption.yaml", result.stdout)
+
 
 @unittest.skipUnless(HAVE_YAML and KUBECTL, "PyYAML and kubectl or oc are required")
 class GitOpsTreeTests(unittest.TestCase):
