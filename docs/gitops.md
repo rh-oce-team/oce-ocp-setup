@@ -109,8 +109,9 @@ not add the `oce` chart; see the ownership table.
 
 ## Version note
 
-OpenShift GitOps 1.19 ships Argo CD 3.1 and 1.20 ships 3.3. Multi-source
-Applications need 2.6 or later, so both work for the follow-up.
+OpenShift GitOps publishes `gitops-X.Y` channels and has no `stable` channel; `latest` installed 1.22.3 on OpenShift 4.22 for this stage deployment. Multi-source Applications need Argo CD 2.6 or later, so every current channel works for the fork-chart follow-up.
+
+The stage environment was exercised on OpenShift 4.22 with OpenShift GitOps 1.22.3. All five Applications reached Synced/Healthy in wave order, and the root became Healthy once Envoy Gateway accepted the GatewayClass.
 
 ## Verification
 
