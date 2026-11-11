@@ -12,7 +12,7 @@ spec:
   project: oce-stages
   source:
     repoURL: https://github.com/rh-oce-team/oce-ocp-setup.git
-    targetRevision: gitops-reshape
+    targetRevision: main
     path: manifests/openshift/overlays/stage/openshell
   destination:
     server: https://kubernetes.default.svc
