@@ -249,6 +249,12 @@ class BootstrapScriptTests(unittest.TestCase):
         self.assertIn("gitops/clusters/stage/root.yaml", result.stdout)
         self.assertNotIn("Argo now creates", result.stdout)
 
+    def test_adoption_dry_run_uses_the_manual_sync_root(self):
+        result = self.run_script("--env", "stage", "--adoption", "--dry-run")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("gitops/clusters/stage/root-adoption.yaml", result.stdout)
+        self.assertNotIn("gitops/clusters/stage/root.yaml", result.stdout)
+
 
 @unittest.skipUnless(HAVE_YAML and KUBECTL, "PyYAML and kubectl or oc are required")
 class GitOpsTreeTests(unittest.TestCase):
@@ -445,6 +451,34 @@ class GitOpsTreeTests(unittest.TestCase):
         documents = render("gitops/bootstrap")
         self.assertNotIn("ArgoCD", {document.get("kind") for document in documents})
 
+    def test_adoption_overlay_removes_automated_sync(self):
+        applications = [
+            document
+            for document in render("gitops/clusters/stage/adoption")
+            if document.get("kind") == "Application"
+        ]
+        self.assertEqual(len(applications), len(APPLICATIONS))
+        for application in applications:
+            self.assertNotIn(
+                "automated",
+                application["spec"]["syncPolicy"],
+                application["metadata"]["name"],
+            )
+            self.assertNotIn(
+                "argocd.argoproj.io/sync-wave",
+                application["metadata"].get("annotations", {}),
+                application["metadata"]["name"],
+            )
+
+    def test_adoption_root_points_at_the_adoption_overlay(self):
+        root = yaml.safe_load(
+            (REPOSITORY / "gitops/clusters/stage/root-adoption.yaml").read_text()
+        )
+        self.assertEqual(
+            root["spec"]["source"]["path"], "gitops/clusters/stage/adoption"
+        )
+        self.assertTrue(root["spec"]["syncPolicy"]["automated"]["selfHeal"])
+
     def test_stage_overlays_pin_the_fork_base(self):
         revisions = set()
         for stage in STAGES:
@@ -502,7 +536,7 @@ class GitOpsTreeTests(unittest.TestCase):
             for entry in overlay["patches"]
             if entry.get("target", {}).get("kind") == "PostgresCluster"
         )
-        self.assertIn("value: 10Gi", patch["patch"])
+        self.assertIn("value: 5Gi", patch["patch"])
 
 
 class PinForkTests(unittest.TestCase):
@@ -555,6 +589,38 @@ class PinForkTests(unittest.TestCase):
         result = self.run_script("--no-verify", "1" * 40)
         self.assertEqual(result.returncode, 1)
         self.assertIn("missing", result.stderr)
+
+
+class PromoteStageTests(unittest.TestCase):
+    def run_script(self, *args):
+        return subprocess.run(
+            ["bash", str(REPOSITORY / "scripts/promote-stage"), *args],
+            capture_output=True,
+            text=True,
+        )
+
+    def test_requires_a_mode(self):
+        result = self.run_script()
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("Usage", result.stderr)
+
+    def test_rejects_two_modes(self):
+        result = self.run_script("--pause", "--resume")
+        self.assertEqual(result.returncode, 2)
+
+    def test_pause_dry_run_names_every_application_in_order(self):
+        result = self.run_script("--pause", "--dry-run")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        positions = [result.stdout.index(app) for app in APPLICATIONS]
+        self.assertEqual(positions, sorted(positions))
+        for app in APPLICATIONS:
+            self.assertIn(f"application {app} --type=merge", result.stdout)
+
+    def test_resume_dry_run_syncs_and_restores_each_application(self):
+        result = self.run_script("--resume", "--dry-run")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.count("operation"), len(APPLICATIONS))
+        self.assertEqual(result.stdout.count("automated"), len(APPLICATIONS))
 
 
 @unittest.skipUnless(HAVE_YAML, "PyYAML is required")

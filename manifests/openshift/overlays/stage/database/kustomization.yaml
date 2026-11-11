@@ -9,8 +9,8 @@ labels:
     pairs:
       oce-ocp-setup/environment: stage
 patches:
-  # Placeholder stage sizing. Replace it with the real cluster's allocation
-  # before the stage redeploy.
+  # The live stage volume is 5Gi. Keep it explicit so a base change cannot
+  # resize the PVC during a sync; a storage increase is a deliberate change.
   - target:
       group: postgres-operator.crunchydata.com
       kind: PostgresCluster
@@ -18,4 +18,4 @@ patches:
     patch: |-
       - op: replace
         path: /spec/instances/0/dataVolumeClaimSpec/resources/requests/storage
-        value: 10Gi
+        value: 5Gi

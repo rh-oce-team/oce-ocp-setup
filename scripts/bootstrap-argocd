@@ -6,7 +6,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: scripts/bootstrap-argocd --env <environment> [--dry-run]
+Usage: scripts/bootstrap-argocd --env <environment> [--adoption] [--dry-run]
 
 Install the OpenShift GitOps operator on the cluster selected by the current
 kubeconfig, apply the controller RBAC and the oce-stages AppProject, add the
@@ -15,6 +15,9 @@ environment root Application.
 
 Options:
   --env <name>  Environment to register. Only "stage" exists today.
+  --adoption    Register the root with manual sync so existing resources can be
+                reviewed before Argo changes them. Use once, then rerun without
+                it to enable automated sync.
   --dry-run     Validate and print the commands without changing the cluster.
   -h, --help    Show this help.
 EOF
@@ -26,6 +29,7 @@ die() {
 }
 
 environment=''
+adoption=false
 dry_run=false
 while (($#)); do
   case "$1" in
@@ -36,6 +40,10 @@ while (($#)); do
       ;;
     --env=*)
       environment="${1#--env=}"
+      shift
+      ;;
+    --adoption)
+      adoption=true
       shift
       ;;
     --dry-run)
@@ -64,6 +72,9 @@ command -v oc >/dev/null 2>&1 || die 'oc is required'
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 bootstrap_dir="$repo_root/gitops/bootstrap"
 root_application="$repo_root/gitops/clusters/$environment/root.yaml"
+if $adoption; then
+  root_application="$repo_root/gitops/clusters/$environment/root-adoption.yaml"
+fi
 
 for path in \
   "$bootstrap_dir/gitops-operator.yaml" \
@@ -132,7 +143,20 @@ step "Register the $environment root Application"
 run apply -f "$root_application"
 
 if ! $dry_run; then
-  cat <<'EOF'
+  if $adoption; then
+    cat <<'EOF'
+
+The root is registered with manual sync. The five Applications exist but Argo
+will not change the cluster until you sync them. Review each diff first:
+
+  oc -n openshift-gitops get applications
+  oc -n openshift-gitops get application oce-operators -o yaml
+
+When the diffs contain only the stage label and the sizing you expect, rerun
+this script without --adoption to let Argo reconcile automatically.
+EOF
+  else
+    cat <<'EOF'
 
 Argo now creates the stage Applications wave by wave from the pinned fork
 revision. Everything else stays in the fork's deployment guide,
@@ -151,4 +175,5 @@ in this order:
 Check progress with:
   oc -n openshift-gitops get applications
 EOF
+  fi
 fi

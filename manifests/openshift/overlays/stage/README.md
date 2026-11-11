@@ -9,14 +9,15 @@ every base with:
 scripts/pin-fork <40-character commit SHA>
 ```
 
-The committed values are placeholders. The `oce-ocp-setup/environment: stage`
-label and the 10Gi PostgreSQL volume are the only deviations from the fork base;
-replace the volume with the real allocation before the stage redeploy.
+The committed values are the live stage profile. The
+`oce-ocp-setup/environment: stage` label and the 5Gi PostgreSQL volume are the
+only deviations from the fork base; the volume matches the live cluster, and a
+storage change must be deliberate.
 
 | Stage        | Argo Application  | Wave | Namespace              | Deviation                |
 | ------------ | ----------------- | ---- | ---------------------- | ------------------------ |
 | `operators`  | `oce-operators`   | 0    | `openclaw-postgres`    | environment label        |
-| `database`   | `oce-database`    | 1    | `openclaw-postgres`    | environment label, 10Gi  |
+| `database`   | `oce-database`    | 1    | `openclaw-postgres`    | environment label, 5Gi   |
 | `admission`  | `oce-admission`   | 1    | `openclaw-system`      | environment label        |
 | `openshell`  | `oce-openshell`   | 2    | `openshell-system`     | environment label        |
 | `routing`    | `oce-routing`     | 3    | `envoy-gateway-system` | environment label        |

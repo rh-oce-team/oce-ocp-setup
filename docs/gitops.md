@@ -77,9 +77,18 @@ It does not touch Secrets, the database, or OCE.
 
 On a cluster already deployed with the fork runbook, Argo starts syncing as
 soon as the Applications exist, so the committed manifests do not provide an
-`argocd app diff` gate before the first sync. Compare the stage render with the
-live objects first, or redeploy the stage cluster from this layout. Do not
-bootstrap an adopted cluster until that comparison is clean.
+`argocd app diff` gate before the first sync. Adopt such a cluster with manual
+sync first:
+
+```bash
+scripts/bootstrap-argocd --env stage --adoption
+```
+
+That registers the root from `root-adoption.yaml`, whose child Applications come
+from `gitops/clusters/stage/adoption` and have no automated sync policy. Argo
+creates them and computes their desired state, but does not change the cluster.
+Review each Application's diff, then rerun without `--adoption` to switch the
+root to `gitops/clusters/stage/apps` and enable automated sync.
 
 ## Consume a new fork revision
 
@@ -101,6 +110,35 @@ bootstrap an adopted cluster until that comparison is clean.
    whole sync wave, so fix the project before pushing.
 5. Commit the overlay change and push. Argo reconciles the five stages from
    this repository and renders their bases from the pinned fork commit.
+
+## Promote a stage revision in order
+
+Sync waves order the first creation of the five Applications. They do not
+serialize later updates: every child tracks `main`, so a commit that moves the
+pin is visible to all five at once and Argo would apply them in parallel.
+Promote in order instead:
+
+1. Pause automatic sync before pushing the change:
+
+   ```bash
+   scripts/promote-stage --pause
+   ```
+
+2. Push the pin change.
+3. Apply the stages in order and restore automation:
+
+   ```bash
+   scripts/promote-stage --resume
+   ```
+
+The resume syncs operators, database, admission, openshell, and routing in that
+order, waits for each sync operation and for Healthy, then re-enables automated
+sync. If a stage fails, automatic sync stays disabled on the stages that were
+not reached, so the next attempt can continue from there.
+
+An OutOfSync child can still report Healthy between the pause and the resume.
+The promotion script waits for the sync operation, not only for health, so it
+does not treat that window as success.
 
 ## Sync order and policy
 
@@ -138,10 +176,11 @@ merge cannot reach it.
 ## Stage data
 
 `manifests/openshift/overlays/stage` commits only two deviations from the fork
-base: an `oce-ocp-setup/environment: stage` label and a placeholder 10Gi
-PostgreSQL volume. The label is metadata only; every NetworkPolicy selector
-stays identical to the base, because the Pods those selectors target are
-created outside these overlays.
+base: an `oce-ocp-setup/environment: stage` label and the 5Gi PostgreSQL volume,
+which matches the live stage cluster. The label is metadata only; every
+NetworkPolicy selector stays identical to the base, because the Pods those
+selectors target are created outside these overlays. A storage change is a
+deliberate edit, never an implicit side effect of a base bump.
 
 These values are cluster-discovered and stay in `OCC_INPUT_DIRECTORY`, outside
 both repositories: the Console Route hostname, the Kubernetes API and

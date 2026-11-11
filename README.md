@@ -45,8 +45,9 @@ ownership boundary.
 
 3. Prepare the cluster-specific inputs outside both checkouts, following the
    fork runbook.
-4. Commit and push. Argo reconciles the five stages and renders their bases
-   from the pinned fork commit.
+4. Pause automatic sync, push the pin change, then resume with
+   `scripts/promote-stage --pause` and `scripts/promote-stage --resume` so the
+   stages apply in order. See [the GitOps guide](docs/gitops.md).
 
 ## Layout
 
