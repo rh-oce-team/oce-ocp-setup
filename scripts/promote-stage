@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+# Promote a stage revision in order. Sync waves order the first creation of the
+# five Applications; they do not serialize later updates, because every child
+# tracks the same branch. Pause automatic sync before pushing the revision,
+# then resume to apply each stage only after the previous one is Healthy.
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage: scripts/promote-stage --pause|--resume [--dry-run]
+
+Options:
+  --pause    Disable automated sync on the five stage Applications. Run before
+             pushing a commit that moves the pinned fork revision.
+  --resume   Sync the Applications in stage order, wait for each operation and
+             for Healthy, then re-enable automated sync.
+  --dry-run  Print the commands without changing the cluster.
+  -h, --help Show this help.
+EOF
+}
+
+namespace=${ARGOCD_NAMESPACE:-openshift-gitops}
+apps=(oce-operators oce-database oce-admission oce-openshell oce-routing)
+mode=''
+dry_run=false
+
+while (($#)); do
+  case "$1" in
+    --pause | --resume)
+      [[ -z $mode ]] || { echo "promote-stage: choose one mode" >&2; exit 2; }
+      mode="${1#--}"
+      shift
+      ;;
+    --dry-run)
+      dry_run=true
+      shift
+      ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "promote-stage: unknown argument: $1" >&2
+      usage >&2
+      exit 2
+      ;;
+  esac
+done
+
+[[ -n $mode ]] || { usage >&2; exit 2; }
+command -v oc >/dev/null 2>&1 || { echo 'promote-stage: oc is required' >&2; exit 1; }
+
+run() {
+  if $dry_run; then
+    printf 'Would run: oc'
+    printf ' %q' "$@"
+    printf '\n'
+  else
+    oc "$@"
+  fi
+}
+
+pause_one() {
+  run -n "$namespace" patch application "$1" --type=merge \
+    -p '{"spec":{"syncPolicy":{"automated":null}}}'
+}
+
+resume_one() {
+  local app=$1
+  run -n "$namespace" patch application "$app" --type=merge \
+    -p '{"operation":{"sync":{}}}'
+  if ! $dry_run; then
+    oc -n "$namespace" wait \
+      --for=jsonpath='{.status.operationState.phase}'=Succeeded \
+      "application/$app" --timeout=20m
+    oc -n "$namespace" wait \
+      --for=jsonpath='{.status.health.status}'=Healthy \
+      "application/$app" --timeout=20m
+  fi
+  run -n "$namespace" patch application "$app" --type=merge \
+    -p '{"spec":{"syncPolicy":{"automated":{"prune":false,"selfHeal":true}}}}'
+}
+
+case "$mode" in
+  pause)
+    for app in "${apps[@]}"; do
+      pause_one "$app"
+    done
+    printf 'Automatic sync is paused on %d Applications. Push the revision, then run --resume.\n' \
+      "${#apps[@]}"
+    ;;
+  resume)
+    trap 'printf "promote-stage: stopped; automated sync stays disabled where it was already paused.\n" >&2' ERR
+    for app in "${apps[@]}"; do
+      resume_one "$app"
+    done
+    printf 'Promoted %d stages in order and re-enabled automatic sync.\n' "${#apps[@]}"
+    ;;
+esac

@@ -1,0 +1,14 @@
+# The labels transformer keeps selectors byte-identical to the base. Do not
+# replace it with commonLabels: that injects the label into every
+# NetworkPolicy podSelector and namespaceSelector, and the Pods those
+# selectors target are created outside this overlay.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  # Generic manifests live in the fork; this repository keeps the stage profile.
+  - github.com/red-hat-data-services/openclaw-enterprise//deploy/rhoai/manifests/openshift/base/operators?ref=920dfe92c41562bb0a50f97afa1787a6ed41b22a
+labels:
+  - includeSelectors: false
+    includeTemplates: false
+    pairs:
+      oce-ocp-setup/environment: stage

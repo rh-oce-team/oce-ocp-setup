@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  # Generic manifests live in the fork; this repository keeps the stage profile.
+  - github.com/red-hat-data-services/openclaw-enterprise//deploy/rhoai/manifests/openshift/base/admission?ref=920dfe92c41562bb0a50f97afa1787a6ed41b22a
+labels:
+  - includeSelectors: false
+    includeTemplates: false
+    pairs:
+      oce-ocp-setup/environment: stage

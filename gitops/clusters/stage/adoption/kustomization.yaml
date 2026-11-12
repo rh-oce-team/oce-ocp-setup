@@ -1,0 +1,19 @@
+# Adoption overlay: the five Applications exist with manual sync so an existing
+# cluster can be reviewed before Argo changes it. Pair it with
+# root-adoption.yaml, then rerun scripts/bootstrap-argocd without --adoption.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: openshift-gitops
+resources:
+  - ../apps
+patches:
+  - target:
+      group: argoproj.io
+      kind: Application
+    patch: |-
+      - op: remove
+        path: /spec/syncPolicy/automated
+      # All five manual Applications must exist together so every diff can be
+      # reviewed even when an existing operator or database is not Healthy.
+      - op: remove
+        path: /metadata/annotations/argocd.argoproj.io~1sync-wave

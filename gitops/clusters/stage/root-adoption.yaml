@@ -1,0 +1,31 @@
+# Adoption root for the stage cluster. scripts/bootstrap-argocd --adoption
+# applies it after the operator, RBAC and AppProject are in place. Its
+# automated sync only creates the five child Applications, which use manual
+# sync until the operator reruns the bootstrap without --adoption.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: oce-stage-root
+  namespace: openshift-gitops
+  labels:
+    app.kubernetes.io/part-of: oce-gitops
+    oce-ocp-setup/cluster: stage
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/rh-oce-team/oce-ocp-setup.git
+    targetRevision: main
+    path: gitops/clusters/stage/adoption
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: openshift-gitops
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    retry:
+      limit: 5
+      backoff:
+        duration: 15s
+        factor: 2
+        maxDuration: 3m
