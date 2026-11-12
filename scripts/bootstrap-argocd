@@ -15,9 +15,9 @@ environment root Application.
 
 Options:
   --env <name>  Environment to register. Only "stage" exists today.
-  --adoption    Register the root with manual sync so existing resources can be
-                reviewed before Argo changes them. Use once, then rerun without
-                it to enable automated sync.
+  --adoption    Create the five child Applications with manual sync so existing
+                resources can be reviewed before Argo changes them. Use once,
+                then rerun without it to enable automated sync.
   --no-root     Install Argo CD and the project, but do not register the root.
                 Use it to prepare a cluster before the manifests are merged.
   --dry-run     Validate and print the commands without changing the cluster.
@@ -160,14 +160,15 @@ if ! $dry_run; then
     cat <<'EOF'
 
 Argo CD and the oce-stages project are installed, but no Application is
-registered. Once the manifests are merged, rerun with --adoption to register
-the root with manual sync and review the diffs.
+registered. Once the manifests are merged, rerun with --adoption to create the
+five child Applications with manual sync and review the diffs.
 EOF
   elif $adoption; then
     cat <<'EOF'
 
-The root is registered with manual sync. The five Applications exist but Argo
-will not change the cluster until you sync them. Review each diff first:
+The root Application is registered with automated sync so it can create the
+five child Applications. The children use manual sync: Argo will not change the
+cluster until you sync them. Review each diff first:
 
   oc -n openshift-gitops get applications
   oc -n openshift-gitops get application oce-operators -o yaml
